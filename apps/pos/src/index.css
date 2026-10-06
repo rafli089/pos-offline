@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Design tokens — POS adaptation of the OpenSea style reference (DESIGN.md).
+   Declared in @theme so Tailwind v4 generates the matching utilities:
+   bg-charcoal, text-paper-white, border-iron, font-gtamericamono, text-heading-sm, ...
+   Remove the hand-written utility block below — @theme already emits it. */
+@theme {
+  /* Colors — single chromatic accent (Ice Signal) on a monochrome canvas */
+  --color-ice-signal: #83c3ff;
+  --color-paper-white: #ffffff;
+  --color-fog: #acadae;
+  --color-iron: #34353c;
+  --color-slate: #3c3d40;
+  --color-graphite: #26272d;
+  --color-charcoal: #1b1d1f;
+  --color-obsidian: #141415;
+  --color-void: #080809;
+
+  /* Typography — gtAmerica substitutes: Inter (UI) + JetBrains Mono (numeric) */
+  --font-gtamerica: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-gtamericamono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Type scale — 12–16px for UI, 20–32px reserved for headings */
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-heading-sm: 20px;
+  --text-heading-lg: 32px;
+
+  /* Radius — never above 8px in the main UI */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  /* Elevation — hairline inset white-alpha ring instead of drop shadows */
+  --shadow-subtle: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-subtle-2: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+@layer base {
+  body {
+    @apply bg-charcoal font-gtamerica text-paper-white text-body leading-relaxed;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Mono for every numeric value that must align column-to-column */
+  .font-gtamericamono,
+  [class*="font-gtamericamono"] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Card: 8px radius, 1px inset ring defines the edge — no drop shadow */
+  .card {
+    @apply rounded-md border border-iron bg-charcoal;
+    box-shadow: var(--shadow-subtle);
+  }
+
+  /* Outlined primary action — the only chromatic control allowed */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-sm border border-ice-signal px-4 py-2.5 text-sm font-medium text-paper-white transition-colors hover:bg-slate disabled:pointer-events-none disabled:opacity-40;
+  }
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--color-void); }
+::-webkit-scrollbar-thumb { background: var(--color-slate); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-iron); }

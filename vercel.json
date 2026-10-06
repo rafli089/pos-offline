@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "buildCommand": "cd apps/pos && npm run build",
+  "devCommand": "cd apps/pos && vite",
+  "outputDirectory": "apps/pos/dist",
+  "installCommand": "cd apps/pos && npm install",
+  "framework": "vite",
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

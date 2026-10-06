@@ -1,0 +1,13 @@
+{
+  "name": "pos-offline-root",
+  "private": true,
+  "workspaces": [
+    "apps/pos",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm -w apps/pos run dev & npm -w server run dev",
+    "build": "npm -w apps/pos run build && npm -w server run build",
+    "start": "npm -w server start"
+  }
+}
