@@ -53,7 +53,7 @@ export default function PaymentScreen() {
     selectedMethod: 'pm-cash',
   });
 
-  // ponytail: sync transaction to server + queue; receipt printing; cash change animation
+    // ponytail: sync transaction to server + queue; cash change animation
 
   const handleAmountChange = (methodId: string, value: string) => {
     const amount = value === '' ? 0 : Math.max(0, Math.min(Number(value) * 100, payment.totalCents));
@@ -87,15 +87,21 @@ export default function PaymentScreen() {
     if (payment.paidCents < payment.totalCents || !payment.selectedMethod) return;
 
     const txId = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${terminal?.terminal_id || 'POS01'}-${Date.now().toString().slice(-6)}`;
-    const selectedMethod = PAYMENT_METHODS.find(m => m.id === payment.selectedMethod)!;
     const now = new Date().toISOString();
 
-    // 1. Shift sales ledger (cash only) + shift log
-    const isCash = selectedMethod.type === 'cash';
-    if (isCash && activeShift) recordSale(payment.paidCents);
+    // 1. Shift sales ledger (cash portion only) + shift log
+    const cashCents = payment.amounts['pm-cash'] || 0;
+    if (cashCents > 0 && activeShift) recordSale(cashCents);
 
-    // 2. Local stock deduction (PRD §12)
-    cart.forEach(item => deductStock(item.menu.id, item.quantity));
+    // 2. Local stock deduction (PRD §12) — package deducts its components
+    cart.forEach(item => {
+      const comps = item.menu.is_package && item.menu.package_items ? item.menu.package_items : null;
+      if (comps) {
+        comps.forEach((c) => deductStock(c.menu_id, c.quantity * item.quantity));
+      } else {
+        deductStock(item.menu.id, item.quantity);
+      }
+    });
 
     // 3. Build & persist Transaction + Payment (PRD §20.4, §20.5)
     const transaction: Transaction = {
@@ -121,24 +127,26 @@ export default function PaymentScreen() {
       created_at: now,
       updated_at: now,
     };
-    const paymentRecord: Payment = {
-      id: crypto.randomUUID(),
-      transaction_id: txId,
-      payment_method_id: selectedMethod.id,
-      amount_cents: payment.paidCents,
-      status: 'PAID',
-      confirmed_at: now,
-      created_at: now,
-    };
-    await addTransaction(transaction, [paymentRecord]);
+    const paymentRecords: Payment[] = Object.entries(payment.amounts)
+      .filter(([, amt]) => amt > 0)
+      .map(([methodId, amt]) => ({
+        id: crypto.randomUUID(),
+        transaction_id: txId,
+        payment_method_id: methodId,
+        amount_cents: amt,
+        status: 'PAID',
+        confirmed_at: now,
+        created_at: now,
+      }));
+    await addTransaction(transaction, paymentRecords);
 
     // 4. Sync queue
     addToQueue('transactions', txId, 'CREATE', transaction);
-    addToQueue('payments', paymentRecord.id, 'CREATE', paymentRecord);
+    paymentRecords.forEach((pr) => addToQueue('payments', pr.id, 'CREATE', pr));
 
     // 5. Audit log
     await log('PAYMENT_COMPLETED', 'transaction', txId, {
-      new_data: { total_cents: payment.totalCents, method: selectedMethod.name },
+      new_data: { total_cents: payment.totalCents, methods: paymentRecords.map((p) => ({ method: p.payment_method_id, amount: p.amount_cents })) },
     });
 
     // 6. Clear cart, then receipt
@@ -146,7 +154,11 @@ export default function PaymentScreen() {
     navigate(`/receipt/${txId}`, {
       state: {
         totalCents: payment.totalCents,
-        payments: [{ method: selectedMethod.name, amount: payment.paidCents, change: payment.changeCents }],
+        payments: paymentRecords.map((p) => ({
+          method: (PAYMENT_METHODS.find((m) => m.id === p.payment_method_id)?.name) ?? p.payment_method_id,
+          amount: p.amount_cents,
+          change: payment.changeCents,
+        })),
         cashier: user?.full_name,
         branch: branch?.name,
         terminal: terminal?.terminal_id,

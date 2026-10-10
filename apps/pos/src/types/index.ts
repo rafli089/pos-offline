@@ -161,9 +161,21 @@ export interface Menu {
   description?: string;
   image_url?: string;
   tags?: string[];
+  // PRD §9 — package & multi-price
+  is_package?: boolean;
+  package_items?: Array<{ menu_id: UUID; quantity: number; note?: string }>;
+  prices?: Array<{ label: string; price_cents: number }>;
   display_order: number;
   created_at: string;
   updated_at: string;
+}
+
+// PRD §9 — menu template (reusable combo)
+export interface MenuTemplate {
+  id: UUID;
+  branch_id: UUID;
+  name: string;
+  items: Array<{ menu_id: UUID; quantity: number }>;
 }
 
 export interface MenuModifier {

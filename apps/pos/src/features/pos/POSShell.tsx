@@ -306,17 +306,24 @@ function MenuGrid({ menus, bestSellers, onAdd }: { menus: Menu[]; bestSellers: s
           <div>
             <div className="flex items-start justify-between gap-1">
               <p className="line-clamp-2 text-sm font-medium text-paper-white">{m.name}</p>
-              {bestSellers.includes(m.id) && (
-                <span className="shrink-0 rounded-sm bg-ice-signal px-1 py-0.5 text-[9px] font-bold text-void">
-                  BEST
-                </span>
-              )}
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                {m.is_package && (
+                  <span className="rounded-sm bg-accent/20 px-1 py-0.5 text-[9px] font-bold text-accent">PAKET</span>
+                )}
+                {bestSellers.includes(m.id) && (
+                  <span className="rounded-sm bg-ice-signal px-1 py-0.5 text-[9px] font-bold text-void">
+                    BEST
+                  </span>
+                )}
+              </span>
             </div>
             {m.stock_tracking && (
               <p className="mt-1 font-gtamericamono text-xs text-fog">stok {m.stock_quantity ?? 0}</p>
             )}
           </div>
-          <p className="mt-2 font-gtamericamono text-sm text-ice-signal">{formatPrice(m.price_cents)}</p>
+          <p className="mt-2 font-gtamericamono text-sm text-ice-signal">
+            {formatPrice(m.special_price_cents ?? m.price_cents)}
+          </p>
         </button>
       ))}
     </div>

@@ -78,6 +78,9 @@ export default function MenuManagement() {
         description: formData.description,
         image_url: formData.image_url,
         tags: formData.tags,
+        is_package: formData.is_package,
+        package_items: formData.package_items,
+        prices: formData.prices,
         display_order: menus.length,
         created_at: now,
         updated_at: now,
@@ -252,7 +255,26 @@ export default function MenuManagement() {
                   Open Price
                 </label>
               </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_package"
+                  checked={formData.is_package || false}
+                  onChange={(e) => setFormData({ ...formData, is_package: e.target.checked, package_items: e.target.checked ? formData.package_items : undefined })}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="is_package" className="text-fog">
+                  Package
+                </label>
+              </div>
             </div>
+
+            {formData.is_package && (
+              <PackageBuilder menus={menus} value={formData.package_items || []}
+                onChange={(items) => setFormData({ ...formData, package_items: items })} />
+            )}
+
+            <PriceTierBuilder value={formData.prices || []} onChange={(prices) => setFormData({ ...formData, prices })} />
 
             <div className="flex gap-2 pt-4">
               <Button onClick={handleSave} className="flex-1 bg-accent hover:bg-accent-dark">
@@ -321,6 +343,98 @@ export default function MenuManagement() {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+type PackageItem = { menu_id: string; quantity: number; note?: string };
+
+function PackageBuilder({ menus, value, onChange }: {
+  menus: Menu[];
+  value: PackageItem[];
+  onChange: (items: PackageItem[]) => void;
+}) {
+  return (
+    <div className="rounded border border-iron p-3">
+      <Label className="text-fog">Isi Package</Label>
+      {value.map((item, idx) => (
+        <div key={idx} className="mt-2 flex items-center gap-2">
+          <select
+            className="flex-1 px-2 py-1.5 bg-iron border border-iron rounded text-sm text-paper-white"
+            value={item.menu_id}
+            onChange={(e) => {
+              const next = [...value];
+              next[idx] = { ...item, menu_id: e.target.value };
+              onChange(next);
+            }}
+          >
+            {menus.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            value={item.quantity}
+            onChange={(e) => {
+              const next = [...value];
+              next[idx] = { ...item, quantity: parseInt(e.target.value) || 1 };
+              onChange(next);
+            }}
+            className="w-16 px-2 py-1.5 bg-iron border border-iron rounded text-sm text-paper-white"
+          />
+          <button onClick={() => onChange(value.filter((_, i) => i !== idx))} className="text-fog hover:text-red-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() => onChange([...value, { menu_id: menus[0]?.id || '', quantity: 1 }])}
+        className="mt-2 text-sm text-ice-signal hover:underline"
+      >
+        + Tambah item
+      </button>
+    </div>
+  );
+}
+
+function PriceTierBuilder({ value, onChange }: {
+  value: Array<{ label: string; price_cents: number }>;
+  onChange: (v: Array<{ label: string; price_cents: number }>) => void;
+}) {
+  return (
+    <div className="rounded border border-iron p-3">
+      <Label className="text-fog">Harga Tambahan (Multi-price)</Label>
+      {value.map((tier, idx) => (
+        <div key={idx} className="mt-2 flex items-center gap-2">
+          <input
+            value={tier.label}
+            placeholder="Label (mis. Large)"
+            onChange={(e) => {
+              const next = [...value];
+              next[idx] = { ...tier, label: e.target.value };
+              onChange(next);
+            }}
+            className="flex-1 px-2 py-1.5 bg-iron border border-iron rounded text-sm text-paper-white"
+          />
+          <input
+            type="number"
+            value={Math.round(tier.price_cents / 100)}
+            onChange={(e) => {
+              const next = [...value];
+              next[idx] = { ...tier, price_cents: (parseInt(e.target.value) || 0) * 100 };
+              onChange(next);
+            }}
+            className="w-24 px-2 py-1.5 bg-iron border border-iron rounded text-sm text-paper-white"
+          />
+          <button onClick={() => onChange(value.filter((_, i) => i !== idx))} className="text-fog hover:text-red-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      <button onClick={() => onChange([...value, { label: '', price_cents: 0 }])} className="mt-2 text-sm text-ice-signal hover:underline">
+        + Tambah harga
+      </button>
     </div>
   );
 }
