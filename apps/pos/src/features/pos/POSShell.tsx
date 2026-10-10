@@ -3,21 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
-import type { Menu, CartItem } from '../../types';
+import type { Menu, CartItem, MenuModifier, MenuExtra } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt } from 'lucide-react';
+import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt, Plus } from 'lucide-react';
 
 export default function POSShell() {
   const { user, terminal, branch } = useAuthStore();
   const isAdmin = useAuthStore((s) => s.isAdmin());
-  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal, bestSellers } = useMenuStore();
+  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal, bestSellers, modifiers, extras } = useMenuStore();
   const { networkStatus } = useSyncStore();
   const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [customizing, setCustomizing] = useState<Menu | null>(null);
 
   const filtered = menus.filter(m => {
     if (m.availability !== 'AVAILABLE') return false;
@@ -25,6 +26,15 @@ export default function POSShell() {
     if (category) return m.category_id === category;
     return true;
   });
+
+  const handleAdd = (m: Menu) => {
+    const hasModifiers = modifiers.some(mo => mo.menu_id === m.id);
+    if (hasModifiers || m.open_price) {
+      setCustomizing(m);
+    } else {
+      addToCart(m, 1);
+    }
+  };
 
   // 1px inset white-alpha ring on cards, no heavy shadow
   const cardClass =
@@ -47,7 +57,7 @@ export default function POSShell() {
             onSelect={setCategory}
           />
           <SearchBar value={search} onChange={setSearch} />
-          <MenuGrid menus={filtered} bestSellers={bestSellers} onAdd={(m, qty = 1) => addToCart(m, qty)} />
+          <MenuGrid menus={filtered} bestSellers={bestSellers} onAdd={handleAdd} />
         </main>
       </div>
 
@@ -100,6 +110,19 @@ export default function POSShell() {
           onUpdate={updateQuantity}
           onRemove={removeFromCart}
           onCheckout={() => { setCartOpen(false); navigate('/payment'); }}
+        />
+      )}
+
+      {customizing && (
+        <CustomizeModal
+          menu={customizing}
+          modifiers={modifiers.filter(mo => mo.menu_id === customizing.id)}
+          extras={extras}
+          onClose={() => setCustomizing(null)}
+          onConfirm={(qty, selectedMods, notes) => {
+            addToCart(customizing, qty, selectedMods, notes);
+            setCustomizing(null);
+          }}
         />
       )}
     </div>
@@ -320,6 +343,79 @@ function CartDrawer({ items, total, onClose, onUpdate, onRemove, onCheckout }: {
           </Button>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function CustomizeModal({ menu, modifiers, extras, onClose, onConfirm }: {
+  menu: Menu;
+  modifiers: MenuModifier[];
+  extras: MenuExtra[];
+  onClose: () => void;
+  onConfirm: (qty: number, selected: Array<{ modifier: MenuModifier; extras: MenuExtra[] }>, notes: string) => void;
+}) {
+  const [qty, setQty] = useState(1);
+  const [notes, setNotes] = useState('');
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const toggle = (id: string) => setSelected(s => ({ ...s, [id]: !s[id] }));
+
+  const selectedMods = modifiers
+    .filter(mo => selected[mo.id])
+    .map(mo => ({ modifier: mo, extras: extras.filter(e => e.modifier_id === mo.id && selected[`${mo.id}:${e.id}`]) }));
+
+  const lineTotal = menu.price_cents * qty +
+    selectedMods.reduce((s, m) => s + m.modifier.price_cents * qty + m.extras.reduce((es, e) => es + e.price_cents * qty, 0), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-md border border-iron bg-charcoal p-4 sm:rounded-md" onClick={e => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-heading-sm text-paper-white">{menu.name}</h2>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Tutup"><X className="h-4 w-4" /></Button>
+        </div>
+
+        {modifiers.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="text-xs text-fog">Modifier</p>
+            {modifiers.map(mo => (
+              <div key={mo.id}>
+                <label className="flex items-center justify-between rounded border border-iron px-3 py-2 text-sm text-paper-white">
+                  <span className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!selected[mo.id]} onChange={() => toggle(mo.id)} className="h-4 w-4" />
+                    {mo.name}
+                  </span>
+                  {mo.price_cents > 0 && <span className="font-gtamericamono text-fog">{formatPrice(mo.price_cents)}</span>}
+                </label>
+                {selected[mo.id] && extras.filter(e => e.modifier_id === mo.id).map(e => (
+                  <label key={e.id} className="ml-6 mt-1 flex items-center gap-2 text-xs text-fog">
+                    <input type="checkbox" checked={!!selected[`${mo.id}:${e.id}`]} onChange={() => toggle(`${mo.id}:${e.id}`)} className="h-3.5 w-3.5" />
+                    {e.name} {e.price_cents > 0 && `(+${formatPrice(e.price_cents)})`}
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <p className="mb-1 text-xs text-fog">Catatan</p>
+          <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="cth: less sugar" />
+        </div>
+
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm text-fog">Jumlah</span>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setQty(q => Math.max(1, q - 1))}><ChevronLeft className="h-3 w-3" /></Button>
+            <span className="w-8 text-center font-gtamericamono text-paper-white">{qty}</span>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setQty(q => q + 1)}><ChevronRight className="h-3 w-3" /></Button>
+          </div>
+        </div>
+
+        <Button className="w-full" onClick={() => onConfirm(qty, selectedMods, notes)}>
+          <Plus className="h-4 w-4 mr-1" /> Tambah — {formatPrice(lineTotal)}
+        </Button>
+      </div>
     </div>
   );
 }
