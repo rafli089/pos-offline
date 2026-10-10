@@ -8,7 +8,7 @@ import OrderHoldRecall from './OrderHoldRecall';
 import type { Menu, CartItem, MenuModifier, MenuExtra, SalesMode, VisitorType, VisitPurpose } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt, Plus } from 'lucide-react';
+import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt, Plus, Bell } from 'lucide-react';
 
 export default function POSShell() {
   const { user, terminal, branch } = useAuthStore();
@@ -170,8 +170,67 @@ function TopBar({ user, terminal, branch, network }: {
       <div className="flex items-center gap-2 text-xs text-fog">
         <span className={`h-2 w-2 rounded-full ${dot}`} />
         <span className="capitalize">{network === 'sync-error' ? 'Sync Error' : network}</span>
+        <NotificationCenter />
       </div>
     </header>
+  );
+}
+
+function NotificationCenter() {
+  const { queue, lastError, lastSyncAt, networkStatus, simulateSync } = useSyncStore();
+  const pending = queue.filter((q) => q.status === 'PENDING');
+  const [open, setOpen] = useState(false);
+
+  const items = [
+    ...pending.map((q) => ({ type: 'pending' as const, label: `Sync pending: ${q.entity_type}`, time: q.created_at })),
+    ...(lastError ? [{ type: 'error' as const, label: lastError, time: lastSyncAt ?? '' }] : []),
+  ];
+
+  return (
+    <div className="relative">
+      <Bell
+        className="h-4 w-4 text-fog hover:text-paper-white cursor-pointer"
+        onClick={() => setOpen(!open)}
+      />
+      {pending.length > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 font-gtamericamono text-[9px] text-white">
+          {pending.length}
+        </span>
+      )}
+      {open && (
+        <div
+          className="absolute right-0 top-6 z-40 w-64 origin-top-right rounded-md border border-iron bg-obsidian p-2 text-xs shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center mb-1">
+            <span className="font-medium text-paper-white">Notifikasi</span>
+            {networkStatus === 'online' && (
+              <button
+                className="text-[10px] underline text-ice-signal"
+               onClick={() => simulateSync().catch(() => {})}
+              >
+                Sync now
+              </button>
+            )}
+          </div>
+          {items.length === 0 ? (
+            <p className="text-fog">Semua sinkron.</p>
+          ) : (
+            <ul className="space-y-1">
+              {items.map((it, i) => (
+                <li
+                  key={i}
+                  className={`truncate ${it.type === 'error' ? 'text-red-400' : 'text-fog'}`}
+                >
+                  • {it.label}
+                </li>
+              ))}
+            </ul>
+          )}
+          {lastSyncAt && <p className="mt-1 text-[10px] text-fog">Sync terakhir: {new Date(lastSyncAt).toLocaleTimeString('id-ID')}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 

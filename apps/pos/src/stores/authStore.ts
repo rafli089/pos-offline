@@ -9,10 +9,15 @@ interface AuthState {
   station: Station | null;
   permissions: Permission[];
   isAuthenticated: boolean;
+  // Auto-lock (PRD §6) — in-memory only, never persisted
+  locked: boolean;
+  sessionPin: string | null;
 
   // Actions
-  login: (user: User, branch: Branch, terminal: Terminal, station: Station, permissions: Permission[]) => void;
+  login: (user: User, branch: Branch, terminal: Terminal, station: Station, permissions: Permission[], pin?: string) => void;
   logout: () => void;
+  lock: () => void;
+  unlock: (pin: string) => boolean;
   hasPermission: (permission: string) => boolean;
   canAccess: (module: string, action: string) => boolean;
   isAdmin: () => boolean;
@@ -25,8 +30,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   station: null,
   permissions: [],
   isAuthenticated: false,
+  locked: false,
+  sessionPin: null,
 
-  login: (user, branch, terminal, station, permissions) => {
+  login: (user, branch, terminal, station, permissions, pin) => {
     set({
       user,
       branch,
@@ -34,6 +41,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       station,
       permissions,
       isAuthenticated: true,
+      locked: false,
+      sessionPin: pin ?? null,
     });
     // Cache session for offline (in production, use encrypted storage)
     localStorage.setItem('pos_session', JSON.stringify({
@@ -54,8 +63,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       station: null,
       permissions: [],
       isAuthenticated: false,
+      locked: false,
+      sessionPin: null,
     });
     localStorage.removeItem('pos_session');
+  },
+
+  lock: () => set({ locked: true }),
+
+  unlock: (pin) => {
+    // ponytail: sessionPin is in-memory; after reload it's null, so we can't
+    // verify against the server offline. Accept any PIN then. Upgrade: verify
+    // via /auth/verify-pin or biometrics when backend ready.
+    const ok = get().sessionPin == null || get().sessionPin === pin;
+    if (ok) set({ locked: false });
+    return ok;
   },
 
   hasPermission: (permission) => {

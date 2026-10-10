@@ -22,7 +22,14 @@ import FraudMonitor from './features/admin/FraudMonitor';
 import MenuManagement from './features/admin/MenuManagement';
 import MasterData from './features/admin/MasterData';
 import Reports from './features/reports/Reports';
+import LockOverlay from './features/auth/LockOverlay';
+import { useAutoLock } from './hooks/useAutoLock';
 import mockData from './lib/mockData';
+
+function AutoLockMount() {
+  useAutoLock();
+  return <LockOverlay />;
+}
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -45,6 +52,7 @@ function App() {
 
   return (
     <Router>
+      {isAuthenticated && <AutoLockMount />}
       <Routes>
         {!isAuthenticated ? (
           <>

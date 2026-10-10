@@ -42,7 +42,7 @@ export default function Login() {
       const rolePerms = mockData.rolePermissions[user.role_id] || [];
       const permissions = mockData.permissions.filter(p => rolePerms.includes(p.id));
 
-      login(user, branch, terminal, station, permissions);
+      login(user, branch, terminal, station, permissions, pin);
       useDayShiftStore.getState().setStatus('READY');
       setNetworkStatus('online');
     } catch (err) {
