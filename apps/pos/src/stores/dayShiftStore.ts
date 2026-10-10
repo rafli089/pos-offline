@@ -51,7 +51,7 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
 
   endDay: async (endedBy) => {
     const { businessDay, activeShift, shiftLogs } = get();
-    if (!businessDay || businessDay.status !== 'OPEN') return;
+    if (!businessDay || (businessDay.status !== 'OPEN' && businessDay.status !== 'ENDING')) return;
 
     if (activeShift && activeShift.status === 'OPEN') return;
 
@@ -59,19 +59,51 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
     const closes = shiftLogs.filter(l => l.action === 'SHIFT_CLOSED').length;
     if (starts !== closes) return;
 
-    if (businessDay) {
-      const updated = {
-        ...businessDay,
-        ended_by: endedBy,
-        ended_at: new Date().toISOString(),
-        status: 'ENDED' as const,
-      };
-      await db.businessDays.put(updated);
-      set({
-        businessDay: updated,
-        posStatus: 'BUSINESS_DAY_NOT_STARTED' as const,
-      });
+    // PRD §7.8 / §12 — end-day stock cutting: mark depleted items
+    try {
+      const menus = await import('./menuStore').then((m) => (m.useMenuStore.getState().menus as any[]));
+      for (const m of menus) {
+        if (!m.stock_tracking) continue;
+        const next = (m.stock_quantity ?? 0) <= 0 && m.availability === 'AVAILABLE';
+        if (next) {
+          await db.stockMovements.put({
+            id: crypto.randomUUID(),
+            menu_id: m.id,
+            branch_id: m.branch_id,
+            type: 'WASTE' as const,
+            quantity: 0,
+            before_quantity: m.stock_quantity ?? 0,
+            after_quantity: 0,
+            reference_type: 'end_day_cutting',
+            reference_id: businessDay.id,
+            created_at: new Date().toISOString(),
+            created_by: endedBy,
+          });
+        }
+      }
+      // Persist availability flip for zero-stock items (source of truth = menu)
+      const current = (await import('./menuStore')).useMenuStore.getState();
+      const updatedMenus = current.menus.map((mm) =>
+        mm.stock_tracking && (mm.stock_quantity ?? 0) <= 0 && mm.availability === 'AVAILABLE'
+          ? { ...mm, availability: 'OUT_OF_STOCK' as const, updated_at: new Date().toISOString() }
+          : mm
+      );
+      await current.setMenus(updatedMenus as any);
+    } catch {
+      // non-fatal: end-day must still close
     }
+
+    const updated = {
+      ...businessDay,
+      ended_by: endedBy,
+      ended_at: new Date().toISOString(),
+      status: 'ENDED' as const,
+    };
+    await db.businessDays.put(updated);
+    set({
+      businessDay: updated,
+      posStatus: 'BUSINESS_DAY_NOT_STARTED' as const,
+    });
   },
 
   isBusinessDayOpen: () => {
