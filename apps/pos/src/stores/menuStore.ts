@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Menu, MenuCategory, MenuModifier, MenuExtra, CartItem } from '../types';
 import { db } from '../lib/db';
+import { useSyncStore } from './syncStore';
 
 interface MenuState {
   categories: MenuCategory[];
@@ -99,6 +100,20 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     if (!menu || !menu.stock_tracking) return;
     const updated = { ...menu, stock_quantity: Math.max(0, (menu.stock_quantity ?? 0) - qty) };
     await db.menus.put(updated);
+
+    const movement = {
+      id: crypto.randomUUID(),
+      branch_id: menu.branch_id,
+      menu_id: menu.id,
+      type: 'SALE' as const,
+      quantity: qty,
+      reference_id: menu.id,
+      user_id: 'system',
+      created_at: new Date().toISOString(),
+    };
+    await db.stockMovements.put(movement);
+    useSyncStore.getState().addToQueue('stockMovements', movement.id, 'CREATE', movement);
+
     set((state) => ({
       menus: state.menus.map((m) => (m.id === menuId ? updated : m)),
     }));

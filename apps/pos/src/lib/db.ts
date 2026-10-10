@@ -1,7 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import type { 
   Menu, BusinessDay, Shift, ShiftLog, Transaction, 
-  Payment, Order, SyncQueue, Stock, AuditLog, 
+  Payment, Order, SyncQueue, Stock, StockMovement, AuditLog, 
   MenuCategory, MenuModifier, MenuExtra 
 } from '../types';
 
@@ -16,6 +16,7 @@ export class POSDatabase extends Dexie {
   transactions!: Table<Transaction>;
   payments!: Table<Payment>;
   orders!: Table<Order>;
+  stockMovements!: Table<StockMovement>;
   syncQueue!: Table<SyncQueue>;
   stock!: Table<Stock>;
   auditLogs!: Table<AuditLog>;
@@ -33,6 +34,7 @@ export class POSDatabase extends Dexie {
       transactions: 'id, business_day_id, shift_id, sync_status',
       payments: 'id, transaction_id',
       orders: 'id, business_day_id, shift_id, status',
+      stockMovements: 'id, branch_id, menu_id, type',
       syncQueue: 'id, status, entity_type',
       stock: 'id, branch_id, menu_id',
       auditLogs: 'id, user_id, shift_id, created_at'
