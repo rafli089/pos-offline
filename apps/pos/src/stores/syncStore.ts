@@ -104,7 +104,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       const msg = e instanceof Error ? e.message : 'unknown error';
       for (const item of pending) await get().markFailed(item.id, msg);
       set({ retryCount: get().retryCount + 1 });
-    },
+    }
   },
 }));
 

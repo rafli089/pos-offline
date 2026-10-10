@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { useDayShiftStore, calculateExpectedCash } from '../../stores/dayShiftStore';
+import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -31,7 +31,7 @@ export default function CloseShift() {
     );
   }
 
-  const expectedCash = calculateExpectedCash(activeShift);
+  const expectedCash = activeShift.expected_cash;
   const actualCash = Number(actualCashInput);
   const variance = actualCash - expectedCash;
   const varianceStatus = variance === 0 ? 'BALANCED' : variance < 0 ? 'SHORT' : 'OVER';

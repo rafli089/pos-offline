@@ -89,10 +89,10 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
   },
 
   startShift: async (shift) => {
-    const newShift = { ...shift };
+    const newShift: Shift = { ...shift };
     await db.shifts.put(newShift);
-    const log = {
-      id: crypto.randomUUID(),
+    const log: ShiftLog = {
+      id: crypto.randomUUID() as ShiftLog['id'],
       shift_id: shift.id,
       user_id: shift.user_id,
       action: 'SHIFT_STARTED',
@@ -113,21 +113,20 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
     const variance = actualCash - shift.expected_cash;
     const varianceStatus = variance === 0 ? 'BALANCED' : variance < 0 ? 'SHORT' : 'OVER';
 
-    const closedShift = {
+    const closedShift: Shift = {
       ...shift,
       status: 'CLOSED',
       actual_cash: actualCash,
       variance,
-      variance_status: varianceStatus,
+      variance_status: varianceStatus as 'BALANCED' | 'SHORT' | 'OVER',
       closed_at: new Date().toISOString(),
     };
     await db.shifts.put(closedShift);
-    const log = {
-      id: crypto.randomUUID(),
-      shift_id: shiftId,
+    const log: ShiftLog = {
+      id: crypto.randomUUID() as ShiftLog['id'],
+      shift_id: shiftId as ShiftLog['shift_id'],
       user_id: shift.user_id,
       action: 'SHIFT_CLOSED',
-      amount: actualCash,
       created_at: new Date().toISOString(),
     };
     await db.shiftLogs.put(log);

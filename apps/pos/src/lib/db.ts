@@ -1,4 +1,4 @@
-import Dexie, { Table } from 'dexie';
+import Dexie, { type Table } from 'dexie';
 import type { 
   Menu, BusinessDay, Shift, ShiftLog, Transaction, 
   Payment, Order, SyncQueue, Stock, StockMovement, AuditLog, 

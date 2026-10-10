@@ -102,7 +102,7 @@ export default function ReceiptScreen() {
             <div className="border-t border-iron pt-2 mt-2">
               <h3 className="text-xs font-medium text-fog mb-2">Pembayaran</h3>
               <div className="space-y-1">
-                {transaction.payments.map((p, i) => (
+                {transaction.payments.map((p: { method: string; amount: number }, i: number) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-fog">{p.method}</span>
                     <span className="text-paper-white">{formatPrice(p.amount)}</span>

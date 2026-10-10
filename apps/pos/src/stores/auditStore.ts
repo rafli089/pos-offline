@@ -1,1 +1,45 @@
-import { create } from 'zustand';\nimport type { AuditLog } from '../types';\nimport { db } from '../lib/db';\n\ninterface AuditState {\n  logs: AuditLog[];\n  log: (action: string, entityType: string, entityId: string, data?: { old_data?: unknown; new_data?: unknown; reason?: string }) => Promise<void>;\n  getLogs: (shift_id?: string) => AuditLog[];\n}\n\nexport const useAuditStore = create<AuditState>((set, get) => ({\n  logs: [],\n\n  log: async (action, entityType, entityId, data) => {\n    const entry: AuditLog = {\n      id: crypto.randomUUID(),\n      user_id: 'system', // ponytail: get from authStore\n      branch_id: 'branch-001', // ponytail: get from authStore\n      terminal_id: 'terminal-001', // ponytail: get from authStore\n      shift_id: undefined, // ponytail: get from dayShiftStore\n      action,\n      entity_type: entityType,\n      entity_id: entityId,\n      reason: data?.reason,\n      old_data: data?.old_data,\n      new_data: data?.new_data,\n      created_at: new Date().toISOString(),\n    };\n    await db.auditLogs.put(entry);\n    set((state) => ({ logs: [...state.logs, entry] }));\n  },\n\n  getLogs: (shift_id) =>\n    shift_id ? get().logs.filter((l) => l.shift_id === shift_id) : get().logs,\n}));\n\n// Rehydrate from IndexedDB\n(async () => {\n  try {\n    const logs = await db.auditLogs.toArray();\n    useAuditStore.setState({ logs });\n  } catch (e) {\n    console.error('Failed to rehydrate auditStore', e);\n  }\n})();\n"
+import { create } from 'zustand';
+import type { AuditLog } from '../types';
+import { db } from '../lib/db';
+
+interface AuditState {
+  logs: AuditLog[];
+  log: (action: string, entityType: string, entityId: string, data?: { old_data?: unknown; new_data?: unknown; reason?: string }) => Promise<void>;
+  getLogs: (shift_id?: string) => AuditLog[];
+}
+
+export const useAuditStore = create<AuditState>((set, get) => ({
+  logs: [],
+
+  log: async (action, entityType, entityId, data) => {
+    const entry: AuditLog = {
+      id: crypto.randomUUID(),
+      user_id: 'system',
+      branch_id: 'branch-001',
+      terminal_id: 'terminal-001',
+      shift_id: undefined,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      reason: data?.reason,
+      old_data: data?.old_data,
+      new_data: data?.new_data,
+      created_at: new Date().toISOString(),
+    };
+    await db.auditLogs.put(entry);
+    set((state) => ({ logs: [...state.logs, entry] }));
+  },
+
+  getLogs: (shift_id) =>
+    shift_id ? get().logs.filter((l) => l.shift_id === shift_id) : get().logs,
+}));
+
+// Rehydrate from IndexedDB
+(async () => {
+  try {
+    const logs = await db.auditLogs.toArray();
+    useAuditStore.setState({ logs });
+  } catch (e) {
+    console.error('Failed to rehydrate auditStore', e);
+  }
+})();
