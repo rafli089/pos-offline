@@ -14,6 +14,8 @@ interface AuthState {
   login: (user: User, branch: Branch, terminal: Terminal, station: Station, permissions: Permission[]) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
+  canAccess: (module: string, action: string) => boolean;
+  isAdmin: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -58,7 +60,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hasPermission: (permission) => {
     const { permissions } = get();
-    return permissions.some(p => p.id === permission);
+    return permissions.some(p => p.id === permission || `${p.module}.${p.action}` === permission);
+  },
+
+  canAccess: (module, action) => {
+    const { permissions } = get();
+    return permissions.some(p => p.module === module && p.action === action);
+  },
+
+  isAdmin: () => {
+    const roleId = get().user?.role_id;
+    return roleId === 'role-admin';
   },
 }));
 

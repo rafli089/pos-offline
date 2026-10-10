@@ -12,6 +12,13 @@ import CloseShift from './features/day-shift/CloseShift';
 import Dashboard from './features/dashboard/Dashboard';
 import PaymentScreen from './features/payment/PaymentScreen';
 import ReceiptScreen from './features/receipt/ReceiptScreen';
+import TransactionList from './features/transactions/TransactionList';
+import CustomerDisplay from './features/pos/CustomerDisplay';
+import GuestFeedback from './features/feedback/GuestFeedback';
+import StockManagement from './features/admin/StockManagement';
+import AuditLogViewer from './features/admin/AuditLogViewer';
+import FraudMonitor from './features/admin/FraudMonitor';
+import Reports from './features/reports/Reports';
 import mockData from './lib/mockData';
 
 function App() {
@@ -61,6 +68,14 @@ function App() {
             <Route path="/payment" element={<PaymentScreen />} />
             <Route path="/receipt/:txId" element={<ReceiptScreen />} />
             <Route path="/close-shift" element={<CloseShift />} />
+            <Route path="/transactions" element={<TransactionList />} />
+            <Route path="/display" element={<CustomerDisplay />} />
+            <Route path="/feedback" element={<GuestFeedback />} />
+            <Route path="/admin/menu" element={<MenuManagement />} />
+            <Route path="/admin/stock" element={<StockManagement />} />
+            <Route path="/admin/audit" element={<AuditLogViewer />} />
+            <Route path="/admin/fraud" element={<FraudMonitor />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

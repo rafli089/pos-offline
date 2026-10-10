@@ -6,11 +6,12 @@ import { useSyncStore } from '../../stores/syncStore';
 import type { Menu, CartItem } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt } from 'lucide-react';
 
 export default function POSShell() {
   const { user, terminal, branch } = useAuthStore();
-  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal } = useMenuStore();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
+  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal, bestSellers } = useMenuStore();
   const { networkStatus } = useSyncStore();
   const navigate = useNavigate();
 
@@ -46,7 +47,7 @@ export default function POSShell() {
             onSelect={setCategory}
           />
           <SearchBar value={search} onChange={setSearch} />
-          <MenuGrid menus={filtered} onAdd={(m, qty = 1) => addToCart(m, qty)} />
+          <MenuGrid menus={filtered} bestSellers={bestSellers} onAdd={(m, qty = 1) => addToCart(m, qty)} />
         </main>
       </div>
 
@@ -64,6 +65,28 @@ export default function POSShell() {
         <RailButton label="Dashboard" onClick={() => navigate('/dashboard')}>
           <LayoutDashboard className="h-4 w-4" />
         </RailButton>
+        <RailButton label="Laporan" onClick={() => navigate('/reports')}>
+          <BarChart3 className="h-4 w-4" />
+        </RailButton>
+        <RailButton label="Transaksi" onClick={() => navigate('/transactions')}>
+          <Receipt className="h-4 w-4" />
+        </RailButton>
+        {isAdmin && (
+          <>
+            <RailButton label="Kelola Menu" onClick={() => navigate('/admin/menu')}>
+              <UtensilsCrossed className="h-4 w-4" />
+            </RailButton>
+            <RailButton label="Kelola Stok" onClick={() => navigate('/admin/stock')}>
+              <Package className="h-4 w-4" />
+            </RailButton>
+            <RailButton label="Audit Log" onClick={() => navigate('/admin/audit')}>
+              <ScrollText className="h-4 w-4" />
+            </RailButton>
+            <RailButton label="Fraud Monitor" onClick={() => navigate('/admin/fraud')}>
+              <ShieldAlert className="h-4 w-4" />
+            </RailButton>
+          </>
+        )}
         <RailButton label="Tutup Shift" onClick={() => navigate('/close-shift')}>
           <LogOut className="h-4 w-4" />
         </RailButton>
@@ -165,7 +188,7 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
-function MenuGrid({ menus, onAdd }: { menus: Menu[]; onAdd: (m: Menu, qty?: number) => void }) {
+function MenuGrid({ menus, bestSellers, onAdd }: { menus: Menu[]; bestSellers: string[]; onAdd: (m: Menu, qty?: number) => void }) {
   if (menus.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -182,7 +205,14 @@ function MenuGrid({ menus, onAdd }: { menus: Menu[]; onAdd: (m: Menu, qty?: numb
           className="flex flex-col justify-between rounded-md border border-iron bg-charcoal p-3 text-left transition-colors hover:bg-graphite"
         >
           <div>
-            <p className="line-clamp-2 text-sm font-medium text-paper-white">{m.name}</p>
+            <div className="flex items-start justify-between gap-1">
+              <p className="line-clamp-2 text-sm font-medium text-paper-white">{m.name}</p>
+              {bestSellers.includes(m.id) && (
+                <span className="shrink-0 rounded-sm bg-ice-signal px-1 py-0.5 text-[9px] font-bold text-void">
+                  BEST
+                </span>
+              )}
+            </div>
             {m.stock_tracking && (
               <p className="mt-1 font-gtamericamono text-xs text-fog">stok {m.stock_quantity ?? 0}</p>
             )}

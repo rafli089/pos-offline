@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
+import { useAuditStore } from '../../stores/auditStore';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { ArrowLeft, Printer, Share2, Mail, RefreshCw } from 'lucide-react';
@@ -14,6 +15,7 @@ export default function ReceiptScreen() {
   const location = useLocation();
   const { cart, getCartTotal } = useMenuStore();
   const { activeShift } = useDayShiftStore();
+  const { log } = useAuditStore();
 
   const state = location.state as any || {};
   const [printing, setPrinting] = useState(false);
@@ -34,6 +36,13 @@ export default function ReceiptScreen() {
   const handlePrint = async () => {
     setPrinting(true);
     if (window.print) window.print();
+    if (reprints > 0) {
+      // Reprint wajib dicatat (PRD §11, §31)
+      await log('RECEIPT_REPRINTED', 'transaction', transaction.id, {
+        reason: `reprint #${reprints}`,
+      });
+    }
+    setReprints((n) => n + 1);
     setPrinting(false);
   };
 

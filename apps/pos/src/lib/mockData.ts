@@ -6,12 +6,44 @@
 import type { MenuCategory, Menu, MenuModifier, MenuExtra, User, Branch, Terminal, Station, PaymentMethod, Permission } from '../types';
 
 export const permissions: Permission[] = [
-  { id: 'perm-001', module: 'menu', action: 'view' },
-  { id: 'perm-002', module: 'menu', action: 'create' },
-  { id: 'perm-003', module: 'order', action: 'create' },
-  { id: 'perm-004', module: 'transaction', action: 'view' },
-  { id: 'perm-005', module: 'payment', action: 'create' },
+  { id: 'menu.view', module: 'menu', action: 'view' },
+  { id: 'menu.create', module: 'menu', action: 'create' },
+  { id: 'menu.update', module: 'menu', action: 'update' },
+  { id: 'menu.delete', module: 'menu', action: 'delete' },
+  { id: 'menu.price', module: 'menu', action: 'price' },
+  { id: 'menu.stock', module: 'menu', action: 'stock' },
+  { id: 'order.create', module: 'order', action: 'create' },
+  { id: 'order.view', module: 'order', action: 'view' },
+  { id: 'order.cancel', module: 'order', action: 'cancel' },
+  { id: 'transaction.view', module: 'transaction', action: 'view' },
+  { id: 'transaction.cancel', module: 'transaction', action: 'cancel' },
+  { id: 'transaction.refund', module: 'transaction', action: 'refund' },
+  { id: 'transaction.reprint', module: 'transaction', action: 'reprint' },
+  { id: 'payment.create', module: 'payment', action: 'create' },
+  { id: 'shift.start', module: 'shift', action: 'start' },
+  { id: 'shift.close', module: 'shift', action: 'close' },
+  { id: 'report.sales', module: 'report', action: 'sales' },
+  { id: 'report.transaction', module: 'report', action: 'transaction' },
+  { id: 'audit.view', module: 'audit', action: 'view' },
+  { id: 'sync.manage', module: 'sync', action: 'manage' },
 ];
+
+// PRD §4/§5 — role → permission set
+export const rolePermissions: Record<string, string[]> = {
+  'role-admin': permissions.map((p) => p.id),
+  'role-cashier': [
+    'menu.view',
+    'order.create',
+    'order.view',
+    'order.cancel',
+    'transaction.view',
+    'transaction.reprint',
+    'payment.create',
+    'shift.start',
+    'shift.close',
+    'report.transaction',
+  ],
+};
 
 export const branches: Branch[] = [
   {

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
+import { useMenuStore, formatPrice } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { useAuditStore } from '../../stores/auditStore';
+import { useTransactionStore } from '../../stores/transactionStore';
+import type { Transaction, Payment } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -41,6 +43,7 @@ export default function PaymentScreen() {
   const { activeShift, recordSale } = useDayShiftStore();
   const { user, terminal, branch } = useAuthStore();
   const { log } = useAuditStore();
+  const { addTransaction } = useTransactionStore();
 
   const [payment, setPayment] = useState<PaymentState>({
     totalCents: getCartTotal(),
@@ -85,6 +88,7 @@ export default function PaymentScreen() {
 
     const txId = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${terminal?.terminal_id || 'POS01'}-${Date.now().toString().slice(-6)}`;
     const selectedMethod = PAYMENT_METHODS.find(m => m.id === payment.selectedMethod)!;
+    const now = new Date().toISOString();
 
     // 1. Shift sales ledger (cash only) + shift log
     const isCash = selectedMethod.type === 'cash';
@@ -93,46 +97,48 @@ export default function PaymentScreen() {
     // 2. Local stock deduction (PRD §12)
     cart.forEach(item => deductStock(item.menu.id, item.quantity));
 
-    // 3. Sync queue
-    addToQueue('transactions', txId, 'CREATE', {
+    // 3. Build & persist Transaction + Payment (PRD §20.4, §20.5)
+    const transaction: Transaction = {
       id: txId,
+      business_day_id: '', // ponytail: wire from dayShiftStore
       shift_id: activeShift?.id || 'shift-demo',
-      cashier_id: user?.id || 'user-cashier-01',
+      order_id: txId,
       branch_id: branch?.id || 'branch-main',
       terminal_id: terminal?.terminal_id || 'POS-TNG-001',
+      user_id: user?.id || 'user-cashier-01',
+      station_id: 'station-001',
+      transaction_number: txId,
+      subtotal_cents: payment.totalCents,
+      discount_cents: 0,
+      tax_cents: 0,
+      service_charge_cents: 0,
       total_cents: payment.totalCents,
       status: 'COMPLETED',
-      created_at: new Date().toISOString(),
-      payments: [{
-        method: selectedMethod.name,
-        method_type: selectedMethod.type,
-        amount_cents: payment.paidCents,
-        change_cents: payment.changeCents,
-        status: 'SUCCESS',
-      }],
-      items: cart.map(item => ({
-        menu_id: item.menu.id,
-        quantity: item.quantity,
-        price_cents: item.menu.price_cents,
-        total_cents: cartLineTotal(item),
-      })),
-    });
-    for (const item of cart) {
-      addToQueue('stock_movements', `stock-${item.menu.id}-${Date.now()}`, 'UPDATE', {
-        menu_id: item.menu.id,
-        quantity: -item.quantity,
-        shift_id: activeShift?.id,
-        transaction_id: txId,
-        type: 'SALE',
-      });
-    }
+      sync_status: 'PENDING',
+      created_at: now,
+      updated_at: now,
+    };
+    const paymentRecord: Payment = {
+      id: crypto.randomUUID(),
+      transaction_id: txId,
+      payment_method_id: selectedMethod.id,
+      amount_cents: payment.paidCents,
+      status: 'PAID',
+      confirmed_at: now,
+      created_at: now,
+    };
+    await addTransaction(transaction, [paymentRecord]);
 
-    // 4. Audit log
+    // 4. Sync queue
+    addToQueue('transactions', txId, 'CREATE', transaction);
+    addToQueue('payments', paymentRecord.id, 'CREATE', paymentRecord);
+
+    // 5. Audit log
     await log('PAYMENT_COMPLETED', 'transaction', txId, {
       new_data: { total_cents: payment.totalCents, method: selectedMethod.name },
     });
 
-    // 5. Clear cart, then receipt
+    // 6. Clear cart, then receipt
     clearCart();
     navigate(`/receipt/${txId}`, {
       state: {
@@ -141,7 +147,7 @@ export default function PaymentScreen() {
         cashier: user?.full_name,
         branch: branch?.name,
         terminal: terminal?.terminal_id,
-        date: new Date().toISOString(),
+        date: now,
         shift: activeShift?.id,
       },
     });

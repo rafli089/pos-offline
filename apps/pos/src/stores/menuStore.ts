@@ -9,11 +9,13 @@ interface MenuState {
   modifiers: MenuModifier[];
   extras: MenuExtra[];
   cart: CartItem[];
+  bestSellers: string[];
 
   setCategories: (categories: MenuCategory[]) => Promise<void>;
   setMenus: (menus: Menu[]) => Promise<void>;
   setModifiers: (modifiers: MenuModifier[]) => Promise<void>;
   setExtras: (extras: MenuExtra[]) => Promise<void>;
+  setBestSellers: (ids: string[]) => void;
   getCategoryMenus: (categoryId: string) => Menu[];
 
   addToCart: (menu: Menu, quantity: number, modifiers?: Array<{ modifier: MenuModifier; extras: MenuExtra[] }>, notes?: string) => Promise<void>;
@@ -31,6 +33,7 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   modifiers: [],
   extras: [],
   cart: [],
+  bestSellers: [],
 
   setCategories: async (categories) => {
     await db.transaction('rw', db.categories, async () => {
@@ -39,6 +42,8 @@ export const useMenuStore = create<MenuState>((set, get) => ({
     });
     set({ categories });
   },
+
+  setBestSellers: (ids) => set({ bestSellers: ids }),
 
   setMenus: async (menus) => {
     await db.transaction('rw', db.menus, async () => {
@@ -155,6 +160,12 @@ export const cartLineTotal = (item: CartItem): number =>
         extras,
       });
     }
+    // Best seller from sales movements
+    const movements = await db.stockMovements.where('type').equals('SALE').toArray();
+    const counts = new Map<string, number>();
+    for (const mv of movements) counts.set(mv.menu_id, (counts.get(mv.menu_id) || 0) + Math.abs(mv.quantity));
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+    if (top.length) useMenuStore.setState({ bestSellers: top });
   } catch (e) {
     console.error('Failed to rehydrate menuStore', e);
   }

@@ -38,7 +38,9 @@ export default function Login() {
       const branch = mockData.branches[0];
       const terminal = mockData.terminals[0];
       const station = mockData.stations[0];
-      const permissions = mockData.permissions;
+      
+      const rolePerms = mockData.rolePermissions[user.role_id] || [];
+      const permissions = mockData.permissions.filter(p => rolePerms.includes(p.id));
 
       login(user, branch, terminal, station, permissions);
       useDayShiftStore.getState().setStatus('READY');
