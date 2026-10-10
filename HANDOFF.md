@@ -15,10 +15,10 @@
 - Sync: queue → POST /api/sync/upload, retry/fail states, network indicator
 
 ### P1 — Important
-- Menu Management CRUD (`/admin/menu`) — name, price, special price, category, stok, availability, tags, open price, deskripsi, image
+- Menu Management CRUD (`/admin/menu`) — name, price, special price, category, stok, availability, tags, open price, deskripsi, image, **package (composite items), multi-price tiers, COGS** (PRD §9)
 - Stock/Inventory (`/admin/stock`) — adjustment STOCK_IN/OUT/ADJUSTMENT/WASTE/REFUND, low-stock alert, movement history
-- Receipt (`/receipt/:txId`) — print, WhatsApp, Email, reprint audit
-- Reports (`/reports`) — sales, transaction, payment, cashier, shift, menu, sales mode (filter by date)
+- Receipt (`/receipt/:txId`) — print, WhatsApp, Email, reprint audit, **QR digital receipt (local qrcode lib, offline)**
+- Reports (`/reports`) — sales, transaction, payment, cashier, shift, menu, sales mode, **P&L margin preview, Outlet snapshot** (filter by date)
 - RBAC enforcement — admin-only nav + `canAccess()` guards on void/refund
 - Audit Log (`/admin/audit`) — filterable activity trail
 - Fraud Monitor (`/admin/fraud`) — rule-based alerts (LOW/MEDIUM/HIGH/CRITICAL)
@@ -31,6 +31,8 @@
 - Advanced Analytics — dashboard widgets + reports tabs (charts = ponytail)
 - Order Hold/Recall (`POSShell`) — save cart as OPEN order, recall to cart; persisted in IndexedDB `orders`
 - Order Metadata — sales mode / visitor type / visit purpose selectors in cart drawer, recorded on transaction
+- Multiple Payment persistence — PaymentScreen parts each saved as `Payment` row; cash portion → shift ledger (PRD §10)
+- End-day Stock Cutting (PRD §7.8/§12) — depleted tracked items auto `OUT_OF_STOCK` + movement log on End Day
 - Master Data (`/admin/master`) — branch/station/terminal/user viewer
 - Auto-lock (PRD §6) — locks after 5 min inactivity, PIN unlock (in-memory; ponytail: verify via backend/biometric)
 - Notification Center — bell in TopBar: pending sync count, sync errors, manual sync-now
