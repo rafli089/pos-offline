@@ -17,6 +17,10 @@ app.get('/health', async (req, reply) =>
   reply.send({ status: 'ok', timestamp: new Date().toISOString() }),
 );
 
+app.get('/', async (req, reply) =>
+  reply.send({ name: 'POS Offline API', version: '1.0.0', endpoints: ['/health', '/api/auth/login', '/api/menu', '/api/shifts', '/api/payments', '/api/sync'] }),
+);
+
 // ponytail: add /ready once DB check exists
 
 app.register(authRoutes, { prefix: '/api/auth' });
