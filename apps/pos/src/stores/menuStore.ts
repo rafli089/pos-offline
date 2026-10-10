@@ -94,12 +94,13 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   clearCart: async () => set({ cart: [] }),
 
   deductStock: async (menuId, qty) => {
+    const { menus } = get();
+    const menu = menus.find((m) => m.id === menuId);
+    if (!menu || !menu.stock_tracking) return;
+    const updated = { ...menu, stock_quantity: Math.max(0, (menu.stock_quantity ?? 0) - qty) };
+    await db.menus.put(updated);
     set((state) => ({
-      menus: state.menus.map((m) =>
-        m.id === menuId && m.stock_tracking
-          ? { ...m, stock_quantity: Math.max(0, (m.stock_quantity ?? 0) - qty) }
-          : m
-      ),
+      menus: state.menus.map((m) => (m.id === menuId ? updated : m)),
     }));
   },
 
