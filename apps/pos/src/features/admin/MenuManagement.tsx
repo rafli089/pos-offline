@@ -18,6 +18,10 @@ export default function MenuManagement() {
     minimum_stock: 0,
     availability: 'AVAILABLE',
     stock_tracking: false,
+    open_price: false,
+    description: '',
+    image_url: '',
+    tags: [],
   });
 
   const handleAdd = () => {
@@ -29,6 +33,10 @@ export default function MenuManagement() {
       minimum_stock: 0,
       availability: 'AVAILABLE',
       stock_tracking: false,
+      open_price: false,
+      description: '',
+      image_url: '',
+      tags: [],
     });
     setShowForm(true);
   };
@@ -69,6 +77,7 @@ export default function MenuManagement() {
         stock_tracking: formData.stock_tracking || false,
         description: formData.description,
         image_url: formData.image_url,
+        tags: formData.tags,
         display_order: menus.length,
         created_at: now,
         updated_at: now,
@@ -171,19 +180,78 @@ export default function MenuManagement() {
                   className="bg-iron border-iron text-paper-white"
                 />
               </div>
+              <div>
+                <Label className="text-fog">Harga Spesial (Rp)</Label>
+                <Input
+                  type="number"
+                  value={formData.special_price_cents ? Math.round(formData.special_price_cents / 100) : ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, special_price_cents: e.target.value ? parseInt(e.target.value) * 100 : undefined })
+                  }
+                  placeholder="Opsional"
+                  className="bg-iron border-iron text-paper-white"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="stock_tracking"
-                checked={formData.stock_tracking || false}
-                onChange={(e) => setFormData({ ...formData, stock_tracking: e.target.checked })}
-                className="h-4 w-4"
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-fog">Deskripsi</Label>
+                <Input
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Opsional"
+                  className="bg-iron border-iron text-paper-white"
+                />
+              </div>
+              <div>
+                <Label className="text-fog">URL Gambar</Label>
+                <Input
+                  value={formData.image_url || ''}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  placeholder="https://…"
+                  className="bg-iron border-iron text-paper-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-fog">Tags (pisahkan koma)</Label>
+              <Input
+                value={(formData.tags || []).join(', ')}
+                onChange={(e) =>
+                  setFormData({ ...formData, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })
+                }
+                placeholder="Best Seller, Promo"
+                className="bg-iron border-iron text-paper-white"
               />
-              <label htmlFor="stock_tracking" className="text-fog">
-                Tracking Stok
-              </label>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="stock_tracking"
+                  checked={formData.stock_tracking || false}
+                  onChange={(e) => setFormData({ ...formData, stock_tracking: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="stock_tracking" className="text-fog">
+                  Tracking Stok
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="open_price"
+                  checked={formData.open_price || false}
+                  onChange={(e) => setFormData({ ...formData, open_price: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <label htmlFor="open_price" className="text-fog">
+                  Open Price
+                </label>
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">
@@ -203,16 +271,37 @@ export default function MenuManagement() {
           <Card key={menu.id} className="bg-charcoal border-iron">
             <CardContent className="pt-6 flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="font-semibold text-paper-white">{menu.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-paper-white">{menu.name}</h3>
+                  {menu.open_price && (
+                    <span className="rounded-sm bg-ice-signal/20 px-1.5 py-0.5 text-[10px] font-medium text-ice-signal">Open Price</span>
+                  )}
+                </div>
                 <p className="text-sm text-fog">{categories.find((c) => c.id === menu.category_id)?.name}</p>
-                <div className="mt-2 flex gap-4 text-sm">
-                  <span className="text-accent">{formatPrice(menu.price_cents)}</span>
+                <div className="mt-2 flex items-center gap-3 text-sm">
+                  {menu.special_price_cents ? (
+                    <>
+                      <span className="text-accent">{formatPrice(menu.special_price_cents)}</span>
+                      <span className="text-fog line-through">{formatPrice(menu.price_cents)}</span>
+                    </>
+                  ) : (
+                    <span className="text-accent">{formatPrice(menu.price_cents)}</span>
+                  )}
                   {menu.stock_tracking && (
                     <span className={menu.stock_quantity! <= menu.minimum_stock! ? 'text-red-500' : 'text-fog'}>
                       Stok: {menu.stock_quantity}
                     </span>
                   )}
                 </div>
+                {menu.tags && menu.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {menu.tags.map((t) => (
+                      <span key={t} className="rounded-sm bg-graphite border border-iron px-1.5 py-0.5 text-[10px] text-fog">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button

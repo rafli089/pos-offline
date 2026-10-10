@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { useTransactionStore } from '../../stores/transactionStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { useMenuStore, formatPrice } from '../../stores/menuStore';
+import { useOrderStore } from '../../stores/orderStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 
-type ReportTab = 'sales' | 'transaction' | 'payment' | 'cashier' | 'shift';
+type ReportTab = 'sales' | 'transaction' | 'payment' | 'cashier' | 'shift' | 'menu' | 'salesmode';
 
 export default function Reports() {
   const { transactions, payments } = useTransactionStore();
   const { activeShift, businessDay, shiftLogs } = useDayShiftStore();
-  const { menus } = useMenuStore();
+  const { menus, categories } = useMenuStore();
+  const { salesModes } = useOrderStore();
   const [tab, setTab] = useState<ReportTab>('sales');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
@@ -37,6 +39,8 @@ export default function Reports() {
     { id: 'payment', label: 'Payment' },
     { id: 'cashier', label: 'Cashier' },
     { id: 'shift', label: 'Shift' },
+    { id: 'menu', label: 'Menu' },
+    { id: 'salesmode', label: 'Sales Mode' },
   ];
 
   return (
@@ -153,7 +157,61 @@ export default function Reports() {
         </Card>
       )}
 
-      {/* ponytail: export CSV/Excel/PDF when reporting lib ready; product/menu & outlet breakdown */}
+      {tab === 'menu' && (
+        <Card className="bg-charcoal border-iron">
+          <CardHeader><CardTitle className="text-base">Menu / Produk Report</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {menus.map((m) => (
+              <div key={m.id} className="flex items-center justify-between border-b border-iron py-2 text-sm last:border-0">
+                <div className="min-w-0">
+                  <p className="truncate text-paper-white">
+                    {m.name}
+                    {m.open_price && <span className="ml-1.5 rounded bg-ice-signal/20 px-1 text-[10px] text-ice-signal">Open</span>}
+                  </p>
+                  <p className="text-xs text-fog">
+                    {categories.find((c) => c.id === m.category_id)?.name}
+                    {m.stock_tracking ? ` · Stok: ${m.stock_quantity}` : ''}
+                    {m.availability !== 'AVAILABLE' ? ' · Non-aktif' : ''}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="font-gtamericamono text-accent">{formatPrice(m.special_price_cents ?? m.price_cents)}</p>
+                  {m.special_price_cents ? (
+                    <p className="font-gtamericamono text-xs text-fog line-through">{formatPrice(m.price_cents)}</p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'salesmode' && (() => {
+        const byMode = new Map<string, { count: number; total: number }>();
+        for (const t of dayTx) {
+          const key = t.sales_mode_id || '-';
+          const cur = byMode.get(key) || { count: 0, total: 0 };
+          byMode.set(key, { count: cur.count + 1, total: cur.total + t.total_cents });
+        }
+        return (
+          <Card className="bg-charcoal border-iron">
+            <CardHeader><CardTitle className="text-base">Sales Mode Report</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {byMode.size === 0 ? (
+                <p className="text-sm text-fog">Belum ada transaksi pada tanggal ini.</p>
+              ) : (
+                [...byMode.entries()].map(([id, v]) => (
+                  <div key={id} className="flex justify-between border-b border-iron py-2 text-sm last:border-0">
+                    <span className="text-fog">{id === '-' ? '-' : salesModes.find((m) => m.id === id)?.name || id}</span>
+                    <span className="text-paper-white">{v.count} tx · {formatPrice(v.total)}</span>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
     </div>
   );
 }

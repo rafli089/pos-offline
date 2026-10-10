@@ -21,10 +21,15 @@ interface MenuState {
   addToCart: (menu: Menu, quantity: number, modifiers?: Array<{ modifier: MenuModifier; extras: MenuExtra[] }>, notes?: string) => Promise<void>;
   removeFromCart: (menuId: string) => Promise<void>;
   updateQuantity: (menuId: string, quantity: number) => Promise<void>;
+  setCart: (items: CartItem[]) => Promise<void>;
   clearCart: () => Promise<void>;
   deductStock: (menuId: string, quantity: number) => Promise<void>;
   getCartTotal: () => number;
   getCartItemCount: () => number;
+
+  // PRD §8 — transient order metadata (in-memory, per-session)
+  orderMeta: { sales_mode_id?: string; visitor_type_id?: string; visit_purpose_id?: string };
+  setOrderMeta: (meta: Partial<{ sales_mode_id: string; visitor_type_id: string; visit_purpose_id: string }>) => void;
 }
 
 export const useMenuStore = create<MenuState>((set, get) => ({
@@ -34,6 +39,9 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   extras: [],
   cart: [],
   bestSellers: [],
+  orderMeta: {},
+
+  setOrderMeta: (meta) => set((state) => ({ orderMeta: { ...state.orderMeta, ...meta } })),
 
   setCategories: async (categories) => {
     await db.transaction('rw', db.categories, async () => {
@@ -98,6 +106,8 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   },
 
   clearCart: async () => set({ cart: [] }),
+
+  setCart: async (items) => set({ cart: items }),
 
   deductStock: async (menuId, qty) => {
     const { menus } = get();

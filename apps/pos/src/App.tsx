@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { useDayShiftStore } from './stores/dayShiftStore';
 import { useMenuStore } from './stores/menuStore';
+import { useOrderStore } from './stores/orderStore';
 import { useSyncStore } from './stores/syncStore';
 import Login from './features/auth/Login';
 import StartDay from './features/day-shift/StartDay';
@@ -35,6 +36,7 @@ function App() {
       useMenuStore.getState().setMenus(mockData.menus);
       useMenuStore.getState().setModifiers(mockData.modifiers);
       useMenuStore.getState().setExtras(mockData.extras as any);
+      useOrderStore.getState().setMetadata(mockData.salesModes, mockData.visitorTypes, mockData.visitPurposes);
     }
     // detect network status
     setNetworkStatus(navigator.onLine ? 'online' : 'offline');

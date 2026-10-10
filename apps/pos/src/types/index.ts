@@ -160,6 +160,7 @@ export interface Menu {
   stock_tracking: boolean;
   description?: string;
   image_url?: string;
+  tags?: string[];
   display_order: number;
   created_at: string;
   updated_at: string;
@@ -186,6 +187,24 @@ export interface MenuPackage {
   branch_id: UUID;
   name: string;
   items: Array<{ menu_id: UUID; quantity: number }>;
+}
+
+// --- Order Metadata (PRD §8) ---
+export interface SalesMode {
+  id: UUID;
+  branch_id: UUID;
+  name: string;
+  group?: string;
+}
+
+export interface VisitorType {
+  id: UUID;
+  name: string;
+}
+
+export interface VisitPurpose {
+  id: UUID;
+  name: string;
 }
 
 // --- Ordering & Transaction ---
@@ -247,6 +266,9 @@ export interface Transaction {
   user_id: UUID;
   station_id: UUID;
   transaction_number: string; // TRX-20261005-POS01-000001
+  sales_mode_id?: UUID;
+  visitor_type_id?: UUID;
+  visit_purpose_id?: UUID;
   subtotal_cents: number;
   discount_cents: number;
   tax_cents: number;

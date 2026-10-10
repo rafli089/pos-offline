@@ -38,7 +38,7 @@ interface PaymentState {
 export default function PaymentScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, getCartTotal, clearCart, deductStock } = useMenuStore();
+  const { cart, getCartTotal, clearCart, deductStock, orderMeta } = useMenuStore();
   const { addToQueue, networkStatus } = useSyncStore();
   const { activeShift, recordSale } = useDayShiftStore();
   const { user, terminal, branch } = useAuthStore();
@@ -108,6 +108,9 @@ export default function PaymentScreen() {
       user_id: user?.id || 'user-cashier-01',
       station_id: 'station-001',
       transaction_number: txId,
+      sales_mode_id: orderMeta.sales_mode_id,
+      visitor_type_id: orderMeta.visitor_type_id,
+      visit_purpose_id: orderMeta.visit_purpose_id,
       subtotal_cents: payment.totalCents,
       discount_cents: 0,
       tax_cents: 0,

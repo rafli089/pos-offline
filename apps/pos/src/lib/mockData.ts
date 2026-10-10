@@ -3,7 +3,7 @@
  * Simulates cached data from server when online
  * ponytail: replace with real sync engine when server ready
  */
-import type { MenuCategory, Menu, MenuModifier, MenuExtra, User, Branch, Terminal, Station, PaymentMethod, Permission } from '../types';
+import type { MenuCategory, Menu, MenuModifier, MenuExtra, User, Branch, Terminal, Station, PaymentMethod, Permission, SalesMode, VisitorType, VisitPurpose } from '../types';
 
 export const permissions: Permission[] = [
   { id: 'menu.view', module: 'menu', action: 'view' },
@@ -107,6 +107,25 @@ export const paymentMethods: PaymentMethod[] = [
   { id: 'pm-ovo', name: 'OVO', type: 'ewallet', is_active: true },
 ];
 
+// PRD §8 — order metadata
+export const salesModes: SalesMode[] = [
+  { id: 'sm-dinein', branch_id: 'branch-001', name: 'Dine In', group: 'Dine In' },
+  { id: 'sm-takeaway', branch_id: 'branch-001', name: 'Take Away', group: 'Take Away' },
+  { id: 'sm-delivery', branch_id: 'branch-001', name: 'Delivery', group: 'Delivery' },
+];
+
+export const visitorTypes: VisitorType[] = [
+  { id: 'vt-regular', name: 'Regular' },
+  { id: 'vt-member', name: 'Member' },
+  { id: 'vt-vip', name: 'VIP' },
+];
+
+export const visitPurposes: VisitPurpose[] = [
+  { id: 'vp-meal', name: 'Makan' },
+  { id: 'vp-coffee', name: 'Ngopi' },
+  { id: 'vp-meeting', name: 'Meeting' },
+];
+
 export const categories: MenuCategory[] = [
   { id: 'cat-001', branch_id: 'branch-001', name: 'Coffee', icon: 'coffee', display_order: 1 },
   { id: 'cat-002', branch_id: 'branch-001', name: 'Non Coffee', icon: 'cup', display_order: 2 },
@@ -114,8 +133,8 @@ export const categories: MenuCategory[] = [
 ];
 
 export const menus: Menu[] = [
-  { id: 'menu-001', branch_id: 'branch-001', name: 'Espresso', sku: 'ESP-001', category_id: 'cat-001', price_cents: 1500000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, display_order: 1, created_at: '', updated_at: '' },
-  { id: 'menu-002', branch_id: 'branch-001', name: 'Latte', sku: 'LAT-001', category_id: 'cat-001', price_cents: 1800000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, display_order: 2, created_at: '', updated_at: '' },
+  { id: 'menu-001', branch_id: 'branch-001', name: 'Espresso', sku: 'ESP-001', category_id: 'cat-001', price_cents: 1500000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, tags: ['Best Seller'], display_order: 1, created_at: '', updated_at: '' },
+  { id: 'menu-002', branch_id: 'branch-001', name: 'Latte', sku: 'LAT-001', category_id: 'cat-001', price_cents: 1800000, special_price_cents: 1500000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, tags: ['Best Seller', 'Promo'], display_order: 2, created_at: '', updated_at: '' },
   { id: 'menu-003', branch_id: 'branch-001', name: 'Americano', sku: 'AME-001', category_id: 'cat-001', price_cents: 1200000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, display_order: 3, created_at: '', updated_at: '' },
   { id: 'menu-004', branch_id: 'branch-001', name: 'Mocha', sku: 'MOC-001', category_id: 'cat-001', price_cents: 2200000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, display_order: 4, created_at: '', updated_at: '' },
   { id: 'menu-005', branch_id: 'branch-001', name: 'Matcha Latte', sku: 'MAT-001', category_id: 'cat-002', price_cents: 2000000, open_price: false, availability: 'AVAILABLE', stock_tracking: false, display_order: 1, created_at: '', updated_at: '' },
@@ -143,4 +162,7 @@ export default {
   terminals,
   paymentMethods,
   permissions,
+  salesModes,
+  visitorTypes,
+  visitPurposes,
 };

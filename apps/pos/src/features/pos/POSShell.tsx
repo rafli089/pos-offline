@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
-import type { Menu, CartItem, MenuModifier, MenuExtra } from '../../types';
+import { useOrderStore, type SavedOrder } from '../../stores/orderStore';
+import OrderHoldRecall from './OrderHoldRecall';
+import type { Menu, CartItem, MenuModifier, MenuExtra, SalesMode, VisitorType, VisitPurpose } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, LogOut, BarChart3, UtensilsCrossed, Package, ScrollText, ShieldAlert, Receipt, Plus } from 'lucide-react';
@@ -11,7 +13,8 @@ import { Search, ShoppingCart, ChevronLeft, ChevronRight, X, LayoutDashboard, Lo
 export default function POSShell() {
   const { user, terminal, branch } = useAuthStore();
   const isAdmin = useAuthStore((s) => s.isAdmin());
-  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal, bestSellers, modifiers, extras } = useMenuStore();
+  const { categories, menus, cart, addToCart, removeFromCart, updateQuantity, getCartTotal, bestSellers, modifiers, extras, setCart, orderMeta, setOrderMeta } = useMenuStore();
+  const { salesModes, visitorTypes, visitPurposes } = useOrderStore();
   const { networkStatus } = useSyncStore();
   const navigate = useNavigate();
 
@@ -34,6 +37,11 @@ export default function POSShell() {
     } else {
       addToCart(m, 1);
     }
+  };
+
+  const handleRecall = async (order: SavedOrder) => {
+    await setCart(order.items);
+    setCartOpen(true);
   };
 
   // 1px inset white-alpha ring on cards, no heavy shadow
@@ -66,6 +74,7 @@ export default function POSShell() {
         total={getCartTotal()}
         onOpen={() => setCartOpen(true)}
         onPay={() => navigate('/payment')}
+        onRecall={handleRecall}
       />
 
       <nav className="fixed left-0 top-12 z-20 flex flex-col gap-1 p-2">
@@ -110,6 +119,11 @@ export default function POSShell() {
           onUpdate={updateQuantity}
           onRemove={removeFromCart}
           onCheckout={() => { setCartOpen(false); navigate('/payment'); }}
+          salesModes={salesModes}
+          visitorTypes={visitorTypes}
+          visitPurposes={visitPurposes}
+          meta={orderMeta}
+          onMeta={setOrderMeta}
         />
       )}
 
@@ -247,25 +261,29 @@ function MenuGrid({ menus, bestSellers, onAdd }: { menus: Menu[]; bestSellers: s
   );
 }
 
-function CartBar({ itemCount, total, onOpen, onPay }: {
+function CartBar({ itemCount, total, onOpen, onPay, onRecall }: {
   itemCount: number; total: number; onOpen: () => void; onPay: () => void;
+  onRecall: (order: SavedOrder) => void;
 }) {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-between gap-4 border-t border-iron bg-obsidian px-4 py-3">
-      <button onClick={onOpen} className="flex items-center gap-3 text-left">
-        <span className="relative rounded-sm border border-iron bg-graphite p-2.5">
-          <ShoppingCart className="h-5 w-5 text-paper-white" />
-          {itemCount > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-obsidian bg-ice-signal px-1 font-gtamericamono text-xs font-medium text-void">
-              {itemCount}
-            </span>
-          )}
-        </span>
-        <span>
-          <span className="block text-xs text-fog">Total</span>
-          <span className="block font-gtamericamono text-lg text-paper-white">{formatPrice(total)}</span>
-        </span>
-      </button>
+      <div className="flex items-center gap-4">
+        <button onClick={onOpen} className="flex items-center gap-3 text-left">
+          <span className="relative rounded-sm border border-iron bg-graphite p-2.5">
+            <ShoppingCart className="h-5 w-5 text-paper-white" />
+            {itemCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-obsidian bg-ice-signal px-1 font-gtamericamono text-xs font-medium text-void">
+                {itemCount}
+              </span>
+            )}
+          </span>
+          <span>
+            <span className="block text-xs text-fog">Total</span>
+            <span className="block font-gtamericamono text-lg text-paper-white">{formatPrice(total)}</span>
+          </span>
+        </button>
+        <OrderHoldRecall onRecall={onRecall} />
+      </div>
       <Button size="lg" disabled={itemCount === 0} onClick={onPay}>
         Bayar
       </Button>
@@ -273,14 +291,20 @@ function CartBar({ itemCount, total, onOpen, onPay }: {
   );
 }
 
-function CartDrawer({ items, total, onClose, onUpdate, onRemove, onCheckout }: {
+function CartDrawer({ items, total, onClose, onUpdate, onRemove, onCheckout, salesModes, visitorTypes, visitPurposes, meta, onMeta }: {
   items: CartItem[];
   total: number;
   onClose: () => void;
   onUpdate: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
   onCheckout: () => void;
+  salesModes: SalesMode[];
+  visitorTypes: VisitorType[];
+  visitPurposes: VisitPurpose[];
+  meta: { sales_mode_id?: string; visitor_type_id?: string; visit_purpose_id?: string };
+  onMeta: (m: Partial<{ sales_mode_id: string; visitor_type_id: string; visit_purpose_id: string }>) => void;
 }) {
+  const selectCls = 'w-full px-2 py-1.5 bg-graphite border border-iron rounded text-sm text-paper-white';
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/60" onClick={onClose}>
       <aside
@@ -334,6 +358,38 @@ function CartDrawer({ items, total, onClose, onUpdate, onRemove, onCheckout }: {
         </div>
 
         <div className="space-y-3 border-t border-iron p-4">
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              className={selectCls}
+              value={meta.sales_mode_id || ''}
+              onChange={(e) => onMeta({ sales_mode_id: e.target.value })}
+            >
+              <option value="">Sales Mode</option>
+              {salesModes.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <select
+              className={selectCls}
+              value={meta.visitor_type_id || ''}
+              onChange={(e) => onMeta({ visitor_type_id: e.target.value })}
+            >
+              <option value="">Tipe Tamu</option>
+              {visitorTypes.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+            <select
+              className={selectCls}
+              value={meta.visit_purpose_id || ''}
+              onChange={(e) => onMeta({ visit_purpose_id: e.target.value })}
+            >
+              <option value="">Tujuan</option>
+              {visitPurposes.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-fog">Total</span>
             <span className="font-gtamericamono text-xl text-paper-white">{formatPrice(total)}</span>
