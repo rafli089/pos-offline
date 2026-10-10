@@ -104,6 +104,9 @@ export default function POSShell() {
             <RailButton label="Fraud Monitor" onClick={() => navigate('/admin/fraud')}>
               <ShieldAlert className="h-4 w-4" />
             </RailButton>
+            <RailButton label="Master Data" onClick={() => navigate('/admin/master')}>
+              <Package className="h-4 w-4" />
+            </RailButton>
           </>
         )}
         <RailButton label="Tutup Shift" onClick={() => navigate('/close-shift')}>

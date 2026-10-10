@@ -20,6 +20,7 @@ import StockManagement from './features/admin/StockManagement';
 import AuditLogViewer from './features/admin/AuditLogViewer';
 import FraudMonitor from './features/admin/FraudMonitor';
 import MenuManagement from './features/admin/MenuManagement';
+import MasterData from './features/admin/MasterData';
 import Reports from './features/reports/Reports';
 import mockData from './lib/mockData';
 
@@ -82,6 +83,7 @@ function App() {
             <Route path="/admin/stock" element={<StockManagement />} />
             <Route path="/admin/audit" element={<AuditLogViewer />} />
             <Route path="/admin/fraud" element={<FraudMonitor />} />
+            <Route path="/admin/master" element={<MasterData />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
