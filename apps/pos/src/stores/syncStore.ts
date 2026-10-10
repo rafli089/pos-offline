@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SyncQueue } from '../types';
+import { db } from '../lib/db';
 
 export type NetworkStatus = 'online' | 'offline' | 'syncing' | 'sync-error';
 
@@ -13,9 +14,9 @@ interface SyncState {
   lastError: string | null;
 
   setNetworkStatus: (status: NetworkStatus) => void;
-  addToQueue: (entityType: string, entityId: string, operation: 'CREATE' | 'UPDATE' | 'DELETE', payload: unknown) => void;
-  markSynced: (id: string) => void;
-  markFailed: (id: string, error: string) => void;
+  addToQueue: (entityType: string, entityId: string, operation: 'CREATE' | 'UPDATE' | 'DELETE', payload: unknown) => Promise<void>;
+  markSynced: (id: string) => Promise<void>;
+  markFailed: (id: string, error: string) => Promise<void>;
   getPendingCount: () => number;
   simulateSync: () => Promise<void>;
 }
@@ -29,7 +30,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
   setNetworkStatus: (status) => set({ networkStatus: status }),
 
-  addToQueue: (entityType, entityId, operation, payload) => {
+  addToQueue: async (entityType, entityId, operation, payload) => {
     const newEntry: SyncQueue = {
       id: crypto.randomUUID(),
       entity_type: entityType,
@@ -40,10 +41,15 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       retry_count: 0,
       created_at: new Date().toISOString(),
     };
+    await db.syncQueue.put(newEntry);
     set((state) => ({ queue: [...state.queue, newEntry] }));
   },
 
-  markSynced: (id) => {
+  markSynced: async (id) => {
+    await db.syncQueue.update(id, {
+      status: 'SYNCED',
+      synced_at: new Date().toISOString(),
+    });
     set((state) => ({
       queue: state.queue.map((q) =>
         q.id === id ? { ...q, status: 'SYNCED' as const, synced_at: new Date().toISOString() } : q
@@ -52,7 +58,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     }));
   },
 
-  markFailed: (id, error) => {
+  markFailed: async (id, error) => {
+    await db.syncQueue.update(id, {
+      status: 'FAILED',
+      last_error: error,
+      retry_count: (get().queue.find((q) => q.id === id)?.retry_count ?? 0) + 1,
+    });
     set((state) => ({
       queue: state.queue.map((q) =>
         q.id === id
@@ -74,7 +85,6 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     if (pending.length === 0) return;
     set({ networkStatus: 'syncing' });
 
-    // group queue entries by entity type → sync batch shape (PRD §16.2)
     const batch: Record<string, unknown[]> = { transactions: [], payments: [], shifts: [], stockMovements: [] };
     for (const q of pending) {
       const key = { transactions: 'transactions', payments: 'payments', shifts: 'shifts', stock_movements: 'stockMovements' }[q.entity_type] ?? 'transactions';
@@ -88,18 +98,26 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         body: JSON.stringify(batch),
       });
       if (!res.ok) throw new Error(`sync failed: ${res.status}`);
-      pending.forEach((item) => get().markSynced(item.id));
+      for (const item of pending) await get().markSynced(item.id);
       set({ networkStatus: 'online', lastError: null });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'unknown error';
-      // backoff: increment retry, mark FAILED (retried on next sync tick)
-      pending.forEach((item) => get().markFailed(item.id, msg));
+      for (const item of pending) await get().markFailed(item.id, msg);
       set({ retryCount: get().retryCount + 1 });
-    }
+    },
   },
 }));
 
-// Auto-detect network + periodic sync tick
+// Rehydrate queue from IndexedDB
+(async () => {
+  try {
+    const queue = await db.syncQueue.toArray();
+    useSyncStore.setState({ queue });
+  } catch (e) {
+    console.error('Failed to rehydrate syncStore', e);
+  }
+})();
+
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     useSyncStore.getState().setNetworkStatus('online');
@@ -108,7 +126,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('offline', () => useSyncStore.getState().setNetworkStatus('offline'));
   if (!navigator.onLine) useSyncStore.getState().setNetworkStatus('offline');
 
-  // retry pending queue every 15s while online (PRD §16 offline sync)
   setInterval(() => {
     const s = useSyncStore.getState();
     if (s.networkStatus !== 'offline' && s.getPendingCount() > 0) s.simulateSync();

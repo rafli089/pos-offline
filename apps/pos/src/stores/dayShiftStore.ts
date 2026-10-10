@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { BusinessDay, Shift, ShiftLog } from '../types';
+import { db } from '../lib/db';
 
 interface DayShiftState {
   businessDay: BusinessDay | null;
@@ -7,21 +8,19 @@ interface DayShiftState {
   shiftLogs: ShiftLog[];
   posStatus: 'LOCKED' | 'READY' | 'BUSINESS_DAY_NOT_STARTED' | 'SHIFT_NOT_STARTED' | 'SHIFT_ACTIVE' | 'OFFLINE' | 'SYNCING' | 'SYNC_ERROR';
 
-  // Business Day
-  setBusinessDay: (day: BusinessDay) => void;
-  startDay: (branchId: string, startedBy: string, businessDate: string) => void;
-  endDay: (endedBy: string) => void;
+  setBusinessDay: (day: BusinessDay) => Promise<void>;
+  startDay: (branchId: string, startedBy: string, businessDate: string) => Promise<void>;
+  endDay: (endedBy: string) => Promise<void>;
   isBusinessDayOpen: () => boolean;
   canEndDay: () => boolean;
 
-  // Shift
-  startShift: (shift: Shift) => void;
-  closeShift: (shiftId: string, actualCash: number) => void;
-  recordSale: (amountCents: number) => void;
-  setShiftLog: (log: ShiftLog) => void;
+  startShift: (shift: Shift) => Promise<void>;
+  closeShift: (shiftId: string, actualCash: number) => Promise<void>;
+  recordSale: (amountCents: number) => Promise<void>;
+  setShiftLog: (log: ShiftLog) => Promise<void>;
 
   setStatus: (status: DayShiftState['posStatus']) => void;
-  reset: () => void;
+  reset: () => Promise<void>;
 }
 
 export const useDayShiftStore = create<DayShiftState>((set, get) => ({
@@ -30,9 +29,12 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
   shiftLogs: [],
   posStatus: 'LOCKED',
 
-  setBusinessDay: (day) => set({ businessDay: day }),
+  setBusinessDay: async (day) => {
+    await db.businessDays.put(day);
+    set({ businessDay: day });
+  },
 
-  startDay: (branchId, startedBy, businessDate) => {
+  startDay: async (branchId, startedBy, businessDate) => {
     const day: BusinessDay = {
       id: crypto.randomUUID(),
       branch_id: branchId,
@@ -43,72 +45,75 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+    await db.businessDays.put(day);
     set({ businessDay: day, posStatus: 'READY' });
   },
 
-  endDay: (endedBy) => {
+  endDay: async (endedBy) => {
     const { businessDay, activeShift, shiftLogs } = get();
     if (!businessDay || businessDay.status !== 'OPEN') return;
 
-    if (activeShift && activeShift.status === 'OPEN') return; // cannot end day with open shift
+    if (activeShift && activeShift.status === 'OPEN') return;
 
-    // all shifts must be CLOSED (shiftLogs balance check)
     const starts = shiftLogs.filter(l => l.action === 'SHIFT_STARTED').length;
     const closes = shiftLogs.filter(l => l.action === 'SHIFT_CLOSED').length;
     if (starts !== closes) return;
 
-    set((state) => ({
-      businessDay: state.businessDay
-        ? {
-          ...state.businessDay,
-          ended_by: endedBy,
-          ended_at: new Date().toISOString(),
-          status: 'ENDED',
-        }
-        : null,
-      posStatus: 'BUSINESS_DAY_NOT_STARTED',
-    }));
+    if (businessDay) {
+      const updated = {
+        ...businessDay,
+        ended_by: endedBy,
+        ended_at: new Date().toISOString(),
+        status: 'ENDED' as const,
+      };
+      await db.businessDays.put(updated);
+      set({
+        businessDay: updated,
+        posStatus: 'BUSINESS_DAY_NOT_STARTED' as const,
+      });
+    }
   },
 
   isBusinessDayOpen: () => {
     return get().businessDay?.status === 'OPEN' || get().businessDay?.status === 'ENDING';
   },
 
-  // PRD End Day validation: no ACTIVE shift, no PENDING transaction, no pending payment.
-  // ponytail: track all shifts + open transactions in store when scaling beyond single-shift per day.
   canEndDay: () => {
     const { businessDay, activeShift, shiftLogs } = get();
     if (!businessDay || businessDay.status !== 'OPEN') return false;
-    // every STARTED shift must be CLOSED
     const starts = shiftLogs.filter(l => l.action === 'SHIFT_STARTED').length;
     const closes = shiftLogs.filter(l => l.action === 'SHIFT_CLOSED').length;
-    if (starts !== closes) return false;                       // unresolved open shift
-    if (activeShift && activeShift.status === 'OPEN') return false; // active open shift
-    return true;                                                 // all shifts closed
+    if (starts !== closes) return false;
+    if (activeShift && activeShift.status === 'OPEN') return false;
+    return true;
   },
 
-  startShift: (shift) => {
+  startShift: async (shift) => {
+    const newShift = { ...shift };
+    await db.shifts.put(newShift);
+    const log = {
+      id: crypto.randomUUID(),
+      shift_id: shift.id,
+      user_id: shift.user_id,
+      action: 'SHIFT_STARTED',
+      created_at: new Date().toISOString(),
+    };
+    await db.shiftLogs.put(log);
     set((state) => ({
-      activeShift: { ...shift },
-      shiftLogs: [...state.shiftLogs, {
-        id: crypto.randomUUID(),
-        shift_id: shift.id,
-        user_id: shift.user_id,
-        action: 'SHIFT_STARTED',
-        created_at: new Date().toISOString(),
-      }],
+      activeShift: newShift,
+      shiftLogs: [...state.shiftLogs, log],
       posStatus: 'SHIFT_ACTIVE',
     }));
   },
 
-  closeShift: (shiftId, actualCash) => {
+  closeShift: async (shiftId, actualCash) => {
     const shift = get().activeShift;
     if (!shift || shift.id !== shiftId) return;
 
     const variance = actualCash - shift.expected_cash;
     const varianceStatus = variance === 0 ? 'BALANCED' : variance < 0 ? 'SHORT' : 'OVER';
 
-    const closedShift: Shift = {
+    const closedShift = {
       ...shift,
       status: 'CLOSED',
       actual_cash: actualCash,
@@ -116,52 +121,71 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
       variance_status: varianceStatus,
       closed_at: new Date().toISOString(),
     };
-
+    await db.shifts.put(closedShift);
+    const log = {
+      id: crypto.randomUUID(),
+      shift_id: shiftId,
+      user_id: shift.user_id,
+      action: 'SHIFT_CLOSED',
+      amount: actualCash,
+      created_at: new Date().toISOString(),
+    };
+    await db.shiftLogs.put(log);
     set((state) => ({
       activeShift: closedShift,
-      shiftLogs: [...state.shiftLogs, {
-        id: crypto.randomUUID(),
-        shift_id: shiftId,
-        user_id: shift.user_id,
-        action: 'SHIFT_CLOSED',
-        amount: actualCash,
-        created_at: new Date().toISOString(),
-      }],
+      shiftLogs: [...state.shiftLogs, log],
       posStatus: 'READY',
     }));
   },
 
-  recordSale: (amountCents) => {
+  recordSale: async (amountCents) => {
     const shift = get().activeShift;
     if (!shift || shift.status !== 'OPEN') return;
     const cash_sales = shift.cash_sales + amountCents;
     const expected_cash = shift.starting_cash + cash_sales + shift.cash_in - shift.cash_out - shift.cash_refund;
-    set({
-      activeShift: {
-        ...shift,
-        cash_sales,
-        expected_cash,
-      },
-    });
+    const updated = {
+      ...shift,
+      cash_sales,
+      expected_cash,
+    };
+    await db.shifts.put(updated);
+    set({ activeShift: updated });
   },
 
-  setShiftLog: (log) => {
-    set((state) => ({
-      shiftLogs: [...state.shiftLogs, log],
-    }));
+  setShiftLog: async (log) => {
+    await db.shiftLogs.put(log);
+    set((state) => ({ shiftLogs: [...state.shiftLogs, log] }));
   },
 
   setStatus: (status) => set({ posStatus: status }),
 
-  reset: () => set({
-    businessDay: null,
-    activeShift: null,
-    shiftLogs: [],
-    posStatus: 'LOCKED',
-  }),
+  reset: async () => {
+    await db.businessDays.clear();
+    await db.shifts.clear();
+    await db.shiftLogs.clear();
+    set({
+      businessDay: null,
+      activeShift: null,
+      shiftLogs: [],
+      posStatus: 'LOCKED',
+    });
+  },
 }));
 
-// Calculate expected cash for shift close
-export const calculateExpectedCash = (shift: Shift): number => {
-  return shift.starting_cash + shift.cash_sales + shift.cash_in - shift.cash_out - shift.cash_refund;
-};
+// Rehydrate from IndexedDB
+(async () => {
+  try {
+    const [businessDay, activeShift, shiftLogs] = await Promise.all([
+      db.businessDays.reverse().first(),
+      db.shifts.reverse().first(),
+      db.shiftLogs.toArray(),
+    ]);
+    useDayShiftStore.setState({
+      businessDay: businessDay ?? null,
+      activeShift: activeShift ?? null,
+      shiftLogs: shiftLogs ?? [],
+    });
+  } catch (e) {
+    console.error('Failed to rehydrate dayShiftStore', e);
+  }
+})();

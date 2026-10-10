@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Menu, MenuCategory, MenuModifier, MenuExtra, CartItem } from '../types';
+import { db } from '../lib/db';
 
 interface MenuState {
   categories: MenuCategory[];
@@ -8,19 +9,17 @@ interface MenuState {
   extras: MenuExtra[];
   cart: CartItem[];
 
-  // Menu actions
-  setCategories: (categories: MenuCategory[]) => void;
-  setMenus: (menus: Menu[]) => void;
-  setModifiers: (modifiers: MenuModifier[]) => void;
-  setExtras: (extras: MenuExtra[]) => void;
+  setCategories: (categories: MenuCategory[]) => Promise<void>;
+  setMenus: (menus: Menu[]) => Promise<void>;
+  setModifiers: (modifiers: MenuModifier[]) => Promise<void>;
+  setExtras: (extras: MenuExtra[]) => Promise<void>;
   getCategoryMenus: (categoryId: string) => Menu[];
 
-  // Cart actions
-  addToCart: (menu: Menu, quantity: number, modifiers?: Array<{ modifier: MenuModifier; extras: MenuExtra[] }>, notes?: string) => void;
-  removeFromCart: (menuId: string) => void;
-  updateQuantity: (menuId: string, quantity: number) => void;
-  clearCart: () => void;
-  deductStock: (menuId: string, quantity: number) => void;
+  addToCart: (menu: Menu, quantity: number, modifiers?: Array<{ modifier: MenuModifier; extras: MenuExtra[] }>, notes?: string) => Promise<void>;
+  removeFromCart: (menuId: string) => Promise<void>;
+  updateQuantity: (menuId: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
+  deductStock: (menuId: string, quantity: number) => Promise<void>;
   getCartTotal: () => number;
   getCartItemCount: () => number;
 }
@@ -32,53 +31,69 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   extras: [],
   cart: [],
 
-  setCategories: (categories) => set({ categories }),
-  setMenus: (menus) => set({ menus }),
-  setModifiers: (modifiers) => set({ modifiers }),
-  setExtras: (extras) => set({ extras }),
+  setCategories: async (categories) => {
+    await db.transaction('rw', db.categories, async () => {
+      await db.categories.clear();
+      for (const c of categories) await db.categories.put(c);
+    });
+    set({ categories });
+  },
+
+  setMenus: async (menus) => {
+    await db.transaction('rw', db.menus, async () => {
+      await db.menus.clear();
+      for (const m of menus) await db.menus.put(m);
+    });
+    set({ menus });
+  },
+
+  setModifiers: async (modifiers) => {
+    await db.transaction('rw', db.modifiers, async () => {
+      await db.modifiers.clear();
+      for (const m of modifiers) await db.modifiers.put(m);
+    });
+    set({ modifiers });
+  },
+
+  setExtras: async (extras) => {
+    await db.transaction('rw', db.extras, async () => {
+      await db.extras.clear();
+      for (const e of extras) await db.extras.put(e);
+    });
+    set({ extras });
+  },
 
   getCategoryMenus: (categoryId) => {
     const { menus } = get();
-    return menus.filter(m => m.category_id === categoryId && m.availability === 'AVAILABLE');
+    return menus.filter((m) => m.category_id === categoryId && m.availability === 'AVAILABLE');
   },
 
-  addToCart: (menu, qty, modifiers = [], notes) => {
+  addToCart: async (menu, qty, modifiers = [], notes) => {
     const quantity = qty ?? 1;
-    const { cart } = get();
-
-    const newCartItem: CartItem = {
-      menu,
-      quantity,
-      modifiers,
-      notes,
-    };
-
-    set({ cart: [...cart, newCartItem] });
-  },
-
-  removeFromCart: (menuId) => {
     set((state) => ({
-      cart: state.cart.filter(item => item.menu.id !== menuId),
+      cart: [...state.cart, { menu, quantity, modifiers, notes }],
     }));
   },
 
-  updateQuantity: (menuId, quantity) => {
+  removeFromCart: async (menuId) => {
+    set((state) => ({ cart: state.cart.filter((item) => item.menu.id !== menuId) }));
+  },
+
+  updateQuantity: async (menuId, quantity) => {
     if (quantity <= 0) {
-      set((state) => ({
-        cart: state.cart.filter(item => item.menu.id !== menuId),
-      }));
+      set((state) => ({ cart: state.cart.filter((item) => item.menu.id !== menuId) }));
       return;
     }
     set((state) => ({
-      cart: state.cart.map(item =>
+      cart: state.cart.map((item) =>
         item.menu.id === menuId ? { ...item, quantity } : item
       ),
     }));
   },
 
-  clearCart: () => set({ cart: [] }),
+  clearCart: async () => set({ cart: [] }),
 
-  deductStock: (menuId, qty) => {
+  deductStock: async (menuId, qty) => {
     set((state) => ({
       menus: state.menus.map((m) =>
         m.id === menuId && m.stock_tracking
@@ -102,19 +117,29 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   getCartItemCount: () => get().cart.reduce((sum, item) => sum + item.quantity, 0),
 }));
 
-// Format price helper — input dalam SEN, output Rp
-export const formatPrice = (cents: number): string => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(cents / 100);
-};
+export const formatPrice = (cents: number): string =>
+  new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(cents / 100);
 
-// Total satu baris cart (menu + modifier + extra), dalam SEN
 export const cartLineTotal = (item: CartItem): number =>
   item.menu.price_cents * item.quantity +
-  item.modifiers.reduce(
-    (mSum, m) => mSum + m.modifier.price_cents + m.extras.reduce((eSum, e) => eSum + e.price_cents, 0),
-    0,
-  );
+  item.modifiers.reduce((mSum, m) => mSum + m.modifier.price_cents + m.extras.reduce((eSum, e) => eSum + e.price_cents, 0), 0);
+
+// Rehydrate from IndexedDB on module load
+(async () => {
+  try {
+    const categories = await db.categories.toArray();
+    const menus = await db.menus.toArray();
+    const modifiers = await db.modifiers.toArray();
+    const extras = await db.extras.toArray();
+    if (categories.length || menus.length || modifiers.length || extras.length) {
+      useMenuStore.setState({
+        categories,
+        menus,
+        modifiers,
+        extras,
+      });
+    }
+  } catch (e) {
+    console.error('Failed to rehydrate menuStore', e);
+  }
+})();
