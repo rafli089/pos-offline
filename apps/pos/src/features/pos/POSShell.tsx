@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useMenuStore, formatPrice } from '../../stores/menuStore';
+import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
 import type { Menu, CartItem } from '../../types';
 import { Button } from '../../components/ui/button';
@@ -271,7 +271,7 @@ function CartDrawer({ items, total, onClose, onUpdate, onRemove, onCheckout }: {
                       </Button>
                     </div>
                     <span className="font-gtamericamono text-sm text-paper-white">
-                      {formatPrice(i.menu.price_cents * i.quantity)}
+                      {formatPrice(cartLineTotal(i))}
                     </span>
                   </div>
                 </li>

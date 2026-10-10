@@ -82,9 +82,17 @@ export default function PaymentScreen() {
     if (payment.paidCents < payment.totalCents || !payment.selectedMethod) return;
 
     const txId = `TRX-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${terminal?.terminal_id || 'POS01'}-${Date.now().toString().slice(-6)}`;
-    const selectedMethodName = PAYMENT_METHODS.find(m => m.id === payment.selectedMethod)?.name || 'Unknown';
+    const selectedMethod = PAYMENT_METHODS.find(m => m.id === payment.selectedMethod)!;
 
-    const transaction = {
+    // 1. Shift sales ledger (cash only) + shift log
+    const isCash = selectedMethod.type === 'cash';
+    if (isCash && activeShift) recordSale(payment.paidCents);
+
+    // 2. Local stock deduction (PRD §12)
+    cart.forEach(item => deductStock(item.menu.id, item.quantity));
+
+    // 3. Sync queue
+    addToQueue('transactions', txId, 'CREATE', {
       id: txId,
       shift_id: activeShift?.id || 'shift-demo',
       cashier_id: user?.id || 'user-cashier-01',
@@ -93,27 +101,21 @@ export default function PaymentScreen() {
       total_cents: payment.totalCents,
       status: 'COMPLETED',
       created_at: new Date().toISOString(),
-      payments: [
-        {
-          method: selectedMethodName,
-          amount_cents: payment.paidCents,
-          change_cents: payment.changeCents,
-          status: 'SUCCESS',
-        }
-      ],
+      payments: [{
+        method: selectedMethod.name,
+        method_type: selectedMethod.type,
+        amount_cents: payment.paidCents,
+        change_cents: payment.changeCents,
+        status: 'SUCCESS',
+      }],
       items: cart.map(item => ({
         menu_id: item.menu.id,
         quantity: item.quantity,
         price_cents: item.menu.price_cents,
-        total_cents: item.menu.price_cents * item.quantity,
+        total_cents: cartLineTotal(item),
       })),
-    };
-
-    // 1. Add to sync queue
-    addToQueue('transactions', txId, 'CREATE', transaction);
-    
-    // 2. Stock deduction (queue each item)
-    cart.forEach(item => {
+    });
+    for (const item of cart) {
       addToQueue('stock_movements', `stock-${item.menu.id}-${Date.now()}`, 'UPDATE', {
         menu_id: item.menu.id,
         quantity: -item.quantity,
@@ -121,13 +123,21 @@ export default function PaymentScreen() {
         transaction_id: txId,
         type: 'SALE',
       });
-    });
+    }
 
-    // 3. Clear cart
+    // 4. Clear cart, then receipt
     clearCart();
-    
-    // 4. Navigate to receipt
-    navigate(`/receipt/${txId}`);
+    navigate(`/receipt/${txId}`, {
+      state: {
+        totalCents: payment.totalCents,
+        payments: [{ method: selectedMethod.name, amount: payment.paidCents, change: payment.changeCents }],
+        cashier: user?.full_name,
+        branch: branch?.name,
+        terminal: terminal?.terminal_id,
+        date: new Date().toISOString(),
+        shift: activeShift?.id,
+      },
+    });
   };
 
   const handleCancel = () => {

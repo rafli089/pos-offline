@@ -17,6 +17,7 @@ interface DayShiftState {
   // Shift
   startShift: (shift: Shift) => void;
   closeShift: (shiftId: string, actualCash: number) => void;
+  recordSale: (amountCents: number) => void;
   setShiftLog: (log: ShiftLog) => void;
 
   setStatus: (status: DayShiftState['posStatus']) => void;
@@ -128,6 +129,20 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
       }],
       posStatus: 'READY',
     }));
+  },
+
+  recordSale: (amountCents) => {
+    const shift = get().activeShift;
+    if (!shift || shift.status !== 'OPEN') return;
+    const cash_sales = shift.cash_sales + amountCents;
+    const expected_cash = shift.starting_cash + cash_sales + shift.cash_in - shift.cash_out - shift.cash_refund;
+    set({
+      activeShift: {
+        ...shift,
+        cash_sales,
+        expected_cash,
+      },
+    });
   },
 
   setShiftLog: (log) => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMenuStore, formatPrice } from '../../stores/menuStore';
+import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -11,21 +11,23 @@ import { ArrowLeft, Printer, Share2, Mail, RefreshCw } from 'lucide-react';
 export default function ReceiptScreen() {
   const { txId } = useParams<{ txId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { cart, getCartTotal } = useMenuStore();
   const { activeShift } = useDayShiftStore();
 
+  const state = location.state as any || {};
   const [printing, setPrinting] = useState(false);
-  const [reprints, setReprints] = useState(0); // track reprint count for audit
+  const [reprints, setReprints] = useState(0);
 
   const transaction = {
-    id: txId || 'TRX-20241006-POS01-000001',
-    date: new Date().toISOString(),
-    cashier: 'Budi Kasir',
+    id: txId || state?.transactionId || 'TRX-20241006-POS01-000001',
+    date: state?.date || new Date().toISOString(),
+    cashier: state?.cashier || 'Budi Kasir',
     items: cart,
-    total_cents: getCartTotal(),
-    payments: [{ method: 'Cash', amount: getCartTotal() }],
-    branch: 'Main Cafe',
-    terminal: 'POS-TNG-001',
+    total_cents: state?.totalCents || getCartTotal(),
+    payments: state?.payments || [{ method: 'Cash', amount: state?.totalCents || getCartTotal() }],
+    branch: state?.branch || 'Main Cafe',
+    terminal: state?.terminal || 'POS-TNG-001',
     shift: activeShift?.id,
   };
 
@@ -81,7 +83,7 @@ export default function ReceiptScreen() {
               {transaction.items.map((item, i) => (
                 <div key={i} className="flex justify-between">
                   <span className="text-sm">{item.menu.name} x{item.quantity}</span>
-                  <span className="text-sm text-paper-white">{formatPrice(item.menu.price_cents * item.quantity)}</span>
+                  <span className="text-sm text-paper-white">{formatPrice(cartLineTotal(item))}</span>
                 </div>
               ))}
             </div>

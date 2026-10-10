@@ -35,15 +35,25 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
         {!isAuthenticated ? (
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
         ) : !businessDay ? (
-          <Route path="*" element={<StartDay />} />
+          <>
+            <Route path="/" element={<StartDay />} />
+            <Route path="/start-day" element={<StartDay />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
         ) : businessDay.status !== 'OPEN' ? (
           <Route path="*" element={<Navigate to="/login" replace />} />
         ) : !activeShift || activeShift.status !== 'OPEN' ? (
-          <Route path="*" element={<StartShift />} />
+          <>
+            <Route path="/" element={<StartShift />} />
+            <Route path="/start-shift" element={<StartShift />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
         ) : (
           <>
             <Route path="/" element={<POSShell />} />

@@ -20,6 +20,7 @@ interface MenuState {
   removeFromCart: (menuId: string) => void;
   updateQuantity: (menuId: string, quantity: number) => void;
   clearCart: () => void;
+  deductStock: (menuId: string, quantity: number) => void;
   getCartTotal: () => number;
   getCartItemCount: () => number;
 }
@@ -77,6 +78,16 @@ export const useMenuStore = create<MenuState>((set, get) => ({
 
   clearCart: () => set({ cart: [] }),
 
+  deductStock: (menuId, qty) => {
+    set((state) => ({
+      menus: state.menus.map((m) =>
+        m.id === menuId && m.stock_tracking
+          ? { ...m, stock_quantity: Math.max(0, (m.stock_quantity ?? 0) - qty) }
+          : m
+      ),
+    }));
+  },
+
   getCartTotal: () => {
     const { cart } = get();
     return cart.reduce((sum, item) => {
@@ -91,11 +102,19 @@ export const useMenuStore = create<MenuState>((set, get) => ({
   getCartItemCount: () => get().cart.reduce((sum, item) => sum + item.quantity, 0),
 }));
 
-// Format price helper
+// Format price helper — input dalam SEN, output Rp
 export const formatPrice = (cents: number): string => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
-  }).format(cents);
+  }).format(cents / 100);
 };
+
+// Total satu baris cart (menu + modifier + extra), dalam SEN
+export const cartLineTotal = (item: CartItem): number =>
+  item.menu.price_cents * item.quantity +
+  item.modifiers.reduce(
+    (mSum, m) => mSum + m.modifier.price_cents + m.extras.reduce((eSum, e) => eSum + e.price_cents, 0),
+    0,
+  );

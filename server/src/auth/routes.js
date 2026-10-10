@@ -7,14 +7,19 @@ export function authRoutes(fastify, opts) {
   };
 
   fastify.post('/login', async (req, reply) => {
+    fastify.log.debug('Login attempt:', JSON.stringify(req.body));
     const { username, pin } = req.body;
     const user = users[username];
     if (!user || pin !== '1234') {
+      fastify.log.warn(`Auth failed: user=${username}, pin=${pin}`);
       reply.code(401);
       return { error: 'Invalid credentials' };
     }
     // ponytail: issue JWT access/refresh + bcrypt PIN verify
     const token = `bearer-${username}-${Date.now()}`;
+    reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    reply.header('Pragma', 'no-cache');
+    reply.header('Expires', '0');
     return { token, user };
   });
 

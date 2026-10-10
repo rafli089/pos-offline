@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import mockData from '../../lib/mockData';
+import { apiClient, ApiError } from '../../lib/apiClient';
 import type { User } from '../../types';
 
 export default function Login() {
@@ -20,32 +21,41 @@ export default function Login() {
   const handleLogin = async () => {
     setLoading(true);
     setError('');
-    // ponytail: replace with real API call; validate against cache (offline credential)
-    await new Promise(r => setTimeout(r, 500)); // simulate network
 
-    if (username === 'kasir1' && pin === '1234') {
-      const user: User = mockData.users[0];
+    try {
+      // Real API call
+      const response = await apiClient.post<{ token: string; user: { id: string; username: string; full_name: string; role: string } }>(
+        '/api/auth/login',
+        { username, pin }
+      );
+
+      // Map backend response to frontend User type using mock data for consistency
+      const mockUser = mockData.users.find(u => u.username === response.user.username);
+      if (!mockUser) {
+        throw new Error('User not found in mock data');
+      }
+      const user = mockUser;
       const branch = mockData.branches[0];
       const terminal = mockData.terminals[0];
       const station = mockData.stations[0];
       const permissions = mockData.permissions;
 
       login(user, branch, terminal, station, permissions);
-      // offline: set status to READY but business day still needs start
       useDayShiftStore.getState().setStatus('READY');
-    } else if (username === 'admin' && pin === '1234') {
-      const user: User = mockData.users[1];
-      const branch = mockData.branches[0];
-      const terminal = mockData.terminals[0];
-      const station = mockData.stations[0];
-      const permissions = [...mockData.permissions];
-
-      login(user, branch, terminal, station, permissions);
-      useDayShiftStore.getState().setStatus('READY');
-    } else {
-      setError('Username atau PIN salah');
+      setNetworkStatus('online');
+    } catch (err) {
+      console.error('Login error:', err);
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else if (err instanceof TypeError && err.message === 'Failed to fetch') {
+        setError('Tidak dapat terhubung ke server. Periksa koneksi internet.');
+        setNetworkStatus('offline');
+      } else {
+        setError('Terjadi kesalahan. Silakan coba lagi.');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleNetworkStatus = (status: 'online' | 'offline' | 'syncing' | 'sync-error') => {
