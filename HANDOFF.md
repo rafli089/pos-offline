@@ -1,8 +1,34 @@
-# POS Offline-First MVP — Final Handoff
+# POS Offline-First — Handoff
 
-**Status:** ✅ MVP Complete  
-**Build:** Frontend 346KB gzip | Backend Node.js Fastify  
-**Date:** 2026-10-06  
+**Status:** ✅ P0 + P1 + P2 Complete  
+**Build:** Frontend ~146KB gzip JS | Backend Node.js Fastify  
+**Date:** 2026-10-10  
+
+## Feature Map
+
+### P0 — Critical
+- Login (PIN), session cache 8h, RBAC role-based permission
+- Business Day / Shift: Start Day, Starting Cash, Start Shift, Close Shift (variance), End Day
+- Ordering: menu grid, category, search, cart, qty, modifiers/notes, multi-method payment
+- Transaction: TRX-YYYYMMDD-TERMINAL-SEQ, persisted to IndexedDB + sync queue
+- Offline storage: Dexie IndexedDB, write-through stores, rehydrate on load
+- Sync: queue → POST /api/sync/upload, retry/fail states, network indicator
+
+### P1 — Important
+- Menu Management CRUD (`/admin/menu`) — name, price, category, stok, availability
+- Stock/Inventory (`/admin/stock`) — adjustment STOCK_IN/OUT/ADJUSTMENT/WASTE/REFUND, low-stock alert, movement history
+- Receipt (`/receipt/:txId`) — print, WhatsApp, Email, reprint audit
+- Reports (`/reports`) — sales, transaction, payment, cashier, shift (filter by date)
+- RBAC enforcement — admin-only nav + `canAccess()` guards on void/refund
+- Audit Log (`/admin/audit`) — filterable activity trail
+- Fraud Monitor (`/admin/fraud`) — rule-based alerts (LOW/MEDIUM/HIGH/CRITICAL)
+
+### P2 — Enhancement
+- Recommendation — Best Seller badge derived from sales movements
+- Customer Display (`/display`) — second screen with cart + total
+- Guest Feedback (`/feedback`) — rating + comment questionnaire
+- Void/Refund (`/transactions`) — permissioned cancel/refund with reason
+- Advanced Analytics — dashboard widgets + reports tabs (charts = ponytail)
 
 ---
 
