@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useMenuStore, formatPrice } from '../../stores/menuStore';
+import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { Button } from '../../components/ui/button';
@@ -35,9 +35,9 @@ interface PaymentState {
 export default function PaymentScreen() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, getCartTotal, clearCart } = useMenuStore();
+  const { cart, getCartTotal, clearCart, deductStock } = useMenuStore();
   const { addToQueue, networkStatus } = useSyncStore();
-  const { activeShift } = useDayShiftStore();
+  const { activeShift, recordSale } = useDayShiftStore();
   const { user, terminal, branch } = useAuthStore();
 
   const [payment, setPayment] = useState<PaymentState>({
