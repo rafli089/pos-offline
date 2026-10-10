@@ -81,6 +81,7 @@ export default function MenuManagement() {
         is_package: formData.is_package,
         package_items: formData.package_items,
         prices: formData.prices,
+        cost_cents: formData.cost_cents,
         display_order: menus.length,
         created_at: now,
         updated_at: now,
@@ -192,6 +193,18 @@ export default function MenuManagement() {
                     setFormData({ ...formData, special_price_cents: e.target.value ? parseInt(e.target.value) * 100 : undefined })
                   }
                   placeholder="Opsional"
+                  className="bg-iron border-iron text-paper-white"
+                />
+              </div>
+              <div>
+                <Label className="text-fog">Cost / Harga Pokok (Rp)</Label>
+                <Input
+                  type="number"
+                  value={formData.cost_cents ? Math.round(formData.cost_cents / 100) : ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cost_cents: e.target.value ? parseInt(e.target.value) * 100 : undefined })
+                  }
+                  placeholder="Untuk laporan P&amp;L"
                   className="bg-iron border-iron text-paper-white"
                 />
               </div>

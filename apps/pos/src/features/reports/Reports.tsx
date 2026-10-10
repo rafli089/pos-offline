@@ -6,7 +6,7 @@ import { useOrderStore } from '../../stores/orderStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 
-type ReportTab = 'sales' | 'transaction' | 'payment' | 'cashier' | 'shift' | 'menu' | 'salesmode';
+type ReportTab = 'sales' | 'transaction' | 'payment' | 'cashier' | 'shift' | 'menu' | 'salesmode' | 'pnl' | 'outlet';
 
 export default function Reports() {
   const { transactions, payments } = useTransactionStore();
@@ -41,6 +41,8 @@ export default function Reports() {
     { id: 'shift', label: 'Shift' },
     { id: 'menu', label: 'Menu' },
     { id: 'salesmode', label: 'Sales Mode' },
+    { id: 'pnl', label: 'P&L' },
+    { id: 'outlet', label: 'Outlet' },
   ];
 
   return (
@@ -207,6 +209,76 @@ export default function Reports() {
                   </div>
                 ))
               )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {tab === 'pnl' && (() => {
+        const active = menus.filter((m) => m.availability === 'AVAILABLE' && !m.is_package);
+        const totalCost = active.reduce((s, m) => s + (m.cost_cents ?? 0) * (m.stock_quantity ?? 0), 0);
+        return (
+          <Card className="bg-charcoal border-iron">
+            <CardHeader><CardTitle className="text-base">Profit &amp; Loss Preview</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <Row label="Gross Sales (day)" value={formatPrice(gross)} />
+              <Row label="Inventory COGS (on-hand)" value={formatPrice(totalCost)} />
+              <Row label="Tx Count" value={String(count)} />
+              <Row label="Avg/Tx" value={formatPrice(avg)} />
+              <p className="text-xs text-fog pt-2">Menu profitability (per unit, on price):</p>
+              <div className="border-t border-iron pt-1">
+                {active.length === 0 ? (
+                  <p className="text-fog">Tidak ada menu aktif.</p>
+                ) : active
+                  .map((m) => {
+                    const margin = (m.price_cents || m.special_price_cents || 0) - (m.cost_cents ?? 0);
+                    const mrgn = m.price_cents || m.special_price_cents || 0;
+                    const pct = mrgn > 0 ? Math.round((margin / mrgn) * 100) : 0;
+                    return { menu: m, margin, pct };
+                  })
+                  .sort((a, b) => b.margin - a.margin)
+                  .slice(0, 10)
+                  .map(({ menu, margin, pct }) => (
+                    <div key={menu.id} className="flex justify-between border-b border-iron py-1 last:border-0">
+                      <span className="text-fog truncate">{menu.name}</span>
+                      <span className="text-paper-white">
+                        {formatPrice(Math.max(0, margin))} · {pct}%
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <p className="text-[10px] text-fog pt-1">
+                Catatan: P&amp;L penuh memerlukan qty terjual per item. Ini preview markup menu saat ini.
+                Ponytail: hubungkan qty terjual dari order items.
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {tab === 'outlet' && (() => {
+        const cashTotal = [...byMethod.entries()].reduce(
+          (s, [, v]) => s + (v.total), 0,
+        );
+        return (
+          <Card className="bg-charcoal border-iron">
+            <CardHeader><CardTitle className="text-base">Outlet Snapshot — {date}</CardTitle></CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <Row label="Outlet" value={businessDay?.branch_id || '—'} />
+              <Row label="Gross Sales" value={formatPrice(gross)} />
+              <Row label="Tx Count" value={String(count)} />
+              <Row label="Avg Basket" value={formatPrice(avg)} />
+              <Row label="Cashier Count" value={String(byCashier.size)} />
+              <Row label="Payment Total" value={formatPrice(cashTotal)} />
+              <div className="border-t border-iron pt-2 mt-2">
+                <p className="text-xs text-fog mb-1">Payment Breakdown</p>
+                {[...byMethod.entries()].map(([method, v]) => (
+                  <div key={method} className="flex justify-between border-b border-iron py-1 last:border-0">
+                    <span className="text-fog">{method}</span>
+                    <span className="text-paper-white">{v.count}x · {formatPrice(v.total)}</span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         );

@@ -153,6 +153,7 @@ export interface Menu {
   category_id: UUID;
   price_cents: number; // base price in IDR cents
   special_price_cents?: number;
+  cost_cents?: number; // COGS for P&L report
   open_price: boolean;
   availability: MenuAvailability;
   stock_quantity?: number;

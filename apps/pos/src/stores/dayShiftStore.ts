@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { BusinessDay, Shift, ShiftLog } from '../types';
 import { db } from '../lib/db';
+import { useMenuStore } from './menuStore';
 
 interface DayShiftState {
   businessDay: BusinessDay | null;
@@ -61,7 +62,7 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
 
     // PRD §7.8 / §12 — end-day stock cutting: mark depleted items
     try {
-      const menus = await import('./menuStore').then((m) => (m.useMenuStore.getState().menus as any[]));
+      const { menus } = useMenuStore.getState();
       for (const m of menus) {
         if (!m.stock_tracking) continue;
         const next = (m.stock_quantity ?? 0) <= 0 && m.availability === 'AVAILABLE';
@@ -82,13 +83,12 @@ export const useDayShiftStore = create<DayShiftState>((set, get) => ({
         }
       }
       // Persist availability flip for zero-stock items (source of truth = menu)
-      const current = (await import('./menuStore')).useMenuStore.getState();
-      const updatedMenus = current.menus.map((mm) =>
+      const updatedMenus = useMenuStore.getState().menus.map((mm) =>
         mm.stock_tracking && (mm.stock_quantity ?? 0) <= 0 && mm.availability === 'AVAILABLE'
           ? { ...mm, availability: 'OUT_OF_STOCK' as const, updated_at: new Date().toISOString() }
           : mm
       );
-      await current.setMenus(updatedMenus as any);
+      await useMenuStore.getState().setMenus(updatedMenus);
     } catch {
       // non-fatal: end-day must still close
     }
