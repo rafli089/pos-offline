@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
 import { useAuditStore } from '../../stores/auditStore';
@@ -54,6 +55,15 @@ export default function ReceiptScreen() {
   const handleEmail = () => {
     window.location.href = `mailto:?subject=Receipt ${transaction.id}&body=Total: ${formatPrice(transaction.total_cents)}`;
   };
+
+  // PRD §11 — QR pada receipt (digital receipt deep-link). Generated locally, works offline.
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const url = `${window.location.origin}/receipt/${transaction.id}`;
+    QRCode.toDataURL(url, { width: 136, margin: 1, color: { dark: '#111111', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch((e) => console.error('QR generate failed', e));
+  }, [transaction.id]);
 
   return (
     <div className="min-h-screen bg-charcoal">
@@ -119,6 +129,13 @@ export default function ReceiptScreen() {
                 ))}
               </div>
             </div>
+
+            {qrDataUrl && (
+              <div className="border-t border-iron pt-3 mt-2 flex flex-col items-center gap-1">
+                <img src={qrDataUrl} alt="QR struk digital" className="h-34 w-34 bg-white p-1" />
+                <p className="text-[10px] text-fog">Scan untuk struk digital</p>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-iron p-4 flex justify-around">
