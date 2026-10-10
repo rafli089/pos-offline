@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useMenuStore, formatPrice, cartLineTotal } from '../../stores/menuStore';
 import { useSyncStore } from '../../stores/syncStore';
 import { useDayShiftStore } from '../../stores/dayShiftStore';
+import { useAuditStore } from '../../stores/auditStore';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -39,6 +40,7 @@ export default function PaymentScreen() {
   const { addToQueue, networkStatus } = useSyncStore();
   const { activeShift, recordSale } = useDayShiftStore();
   const { user, terminal, branch } = useAuthStore();
+  const { log } = useAuditStore();
 
   const [payment, setPayment] = useState<PaymentState>({
     totalCents: getCartTotal(),
@@ -125,7 +127,12 @@ export default function PaymentScreen() {
       });
     }
 
-    // 4. Clear cart, then receipt
+    // 4. Audit log
+    await log('PAYMENT_COMPLETED', 'transaction', txId, {
+      new_data: { total_cents: payment.totalCents, method: selectedMethod.name },
+    });
+
+    // 5. Clear cart, then receipt
     clearCart();
     navigate(`/receipt/${txId}`, {
       state: {
