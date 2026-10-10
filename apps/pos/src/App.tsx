@@ -18,6 +18,7 @@ import GuestFeedback from './features/feedback/GuestFeedback';
 import StockManagement from './features/admin/StockManagement';
 import AuditLogViewer from './features/admin/AuditLogViewer';
 import FraudMonitor from './features/admin/FraudMonitor';
+import MenuManagement from './features/admin/MenuManagement';
 import Reports from './features/reports/Reports';
 import mockData from './lib/mockData';
 
@@ -54,7 +55,11 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : businessDay.status !== 'OPEN' ? (
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <>
+            <Route path="/" element={<StartDay />} />
+            <Route path="/start-day" element={<StartDay />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
         ) : !activeShift || activeShift.status !== 'OPEN' ? (
           <>
             <Route path="/" element={<StartShift />} />
