@@ -15,10 +15,10 @@
 - Sync: queue → POST /api/sync/upload, retry/fail states, network indicator
 
 ### P1 — Important
-- Menu Management CRUD (`/admin/menu`) — name, price, category, stok, availability
+- Menu Management CRUD (`/admin/menu`) — name, price, special price, category, stok, availability, tags, open price, deskripsi, image
 - Stock/Inventory (`/admin/stock`) — adjustment STOCK_IN/OUT/ADJUSTMENT/WASTE/REFUND, low-stock alert, movement history
 - Receipt (`/receipt/:txId`) — print, WhatsApp, Email, reprint audit
-- Reports (`/reports`) — sales, transaction, payment, cashier, shift (filter by date)
+- Reports (`/reports`) — sales, transaction, payment, cashier, shift, menu, sales mode (filter by date)
 - RBAC enforcement — admin-only nav + `canAccess()` guards on void/refund
 - Audit Log (`/admin/audit`) — filterable activity trail
 - Fraud Monitor (`/admin/fraud`) — rule-based alerts (LOW/MEDIUM/HIGH/CRITICAL)
@@ -29,6 +29,11 @@
 - Guest Feedback (`/feedback`) — rating + comment questionnaire
 - Void/Refund (`/transactions`) — permissioned cancel/refund with reason
 - Advanced Analytics — dashboard widgets + reports tabs (charts = ponytail)
+- Order Hold/Recall (`POSShell`) — save cart as OPEN order, recall to cart; persisted in IndexedDB `orders`
+- Order Metadata — sales mode / visitor type / visit purpose selectors in cart drawer, recorded on transaction
+- Master Data (`/admin/master`) — branch/station/terminal/user viewer
+- Auto-lock (PRD §6) — locks after 5 min inactivity, PIN unlock (in-memory; ponytail: verify via backend/biometric)
+- Notification Center — bell in TopBar: pending sync count, sync errors, manual sync-now
 
 ---
 
